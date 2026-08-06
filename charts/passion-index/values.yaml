@@ -1,0 +1,90 @@
+# Default values for passion-index.
+# Style follows lamp-service chart: image/service/server/secrets blocks.
+# Sensitive values come from pre-created Kubernetes Secrets; this file only
+# references them by name + key.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/yichozy/passion-index
+  tag: ""               # empty → use chart appVersion
+  pullPolicy: IfNotPresent
+  pullSecrets:
+    - name: aliyun-acr-sg
+
+service:
+  type: ClusterIP
+  port: 8900
+
+# App-level config. Non-secret values go into the ConfigMap the chart
+# mounts via envFrom; secret values are referenced in `secrets` below.
+server:
+  # ENV=prod skips hopebox/env's .env loading; prod uses container-injected env.
+  env: prod
+  port: 8900            # container port; matches what main.go listens on
+  # gorm SQL logging toggle (read by hopebox/dao).
+  silentLog: "false"
+
+# Sensitive values + service connection info. Create these Secrets out-of-band;
+# chart just mounts them via envFrom. Each block's *Key fields document which
+# env vars the Secret is expected to contain — they're not parsed by the
+# chart, just docs. Leave existingSecret empty to skip mounting that source.
+secrets:
+  # PostgreSQL — full connection info bundled so it can be rotated as a unit.
+  database:
+    existingSecret: "postgres"
+    hostKey: PASSION_INDEX_POSTGRES_HOST
+    portKey: PASSION_INDEX_POSTGRES_PORT
+    usernameKey: PASSION_INDEX_POSTGRES_USERNAME
+    passwordKey: PASSION_INDEX_POSTGRES_PASSWORD
+    databaseKey: PASSION_INDEX_POSTGRES_DB
+  # Aliyun OSS — bucket/endpoint live with credentials so a storage migration
+  # (switch bucket / region) is one Secret edit, not a ConfigMap+Secret dance.
+  oss:
+    existingSecret: "aliyun-oss"
+    accessKeyKey: ALIYUN_OSS_ACCESS_KEY
+    accessSecretKey: ALIYUN_OSS_ACCESS_SECRET
+    bucketKey: ALIYUN_OSS_BUCKET
+    endpointKey: ALIYUN_OSS_ENDPOINT
+  # MinerU OCR + Popo — URLs + tokens together. The pipeline calls both services.
+  mineru:
+    existingSecret: "mineru-private"
+    privateBaseUrlKey: MINERU_PRIVATE_BASE_URL
+    popoBaseUrlKey: MINERU_POPO_BASE_URL
+    privateTokenKey: MINERU_PRIVATE_TOKEN
+    popoTokenKey: MINERU_POPO_TOKEN
+  paddleOcr:
+    existingSecret: "paddle-orc"
+    apiKeyKey: PADDLE_OCR_KEY
+  deepseek:
+    existingSecret: "deepseek"
+    apiKeyKey: DEEP_SEEK_API_KEY
+  huoshang:
+    existingSecret: "huoshang"
+    apiKeyKey: HUO_SHANG_ARK_API_KEY
+
+
+# Resource requests/limits. Pipeline is async goroutines; memory headroom
+# matters when a large PDF's tree + figures are all in memory.
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 0
+    memory: 0
+
+# Both probes hit GET /healthz (cheap JSON response from main.go).
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 30
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+

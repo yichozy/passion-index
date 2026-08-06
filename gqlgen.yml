@@ -1,0 +1,42 @@
+# gqlgen 配置 — 参考 curation-go/gqlgen.yml 风格
+# 文档:https://gqlgen.com/getting-started/
+
+# Schema 文件位置(按主题拆分)
+schema:
+  - graph/schema/*.graphql
+
+# 生成的 executable schema
+exec:
+  package: graph
+  layout: single-file
+  filename: graph/generated.go
+
+# 生成的 GraphQL 类型(对应 schema 里的 type)
+model:
+  filename: graph/types/types_gen.go
+  package: types
+
+# Resolver 实现位置(按 schema 分文件)
+resolver:
+  layout: follow-schema
+  dir: graph
+  filename_template: "{name}.resolvers.go"
+  omit_template_comment: false
+
+# 自动绑定(用现有 Go 类型,不重新生成)— 暂为空,Phase 2 再加
+autobind: []
+
+# GraphQL scalar → Go 类型映射
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+  Time:
+    model:
+      - github.com/99designs/gqlgen/graphql.Time
+  Upload:
+    model:
+      - github.com/99designs/gqlgen/graphql.Upload

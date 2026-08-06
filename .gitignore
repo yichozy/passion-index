@@ -1,0 +1,27 @@
+# Binaries
+bin/
+tmp/
+__debug_bin*
+
+# IDE
+.vscode/
+.idea/
+.claude/
+.code-review-graph/
+
+# OS
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Runtime data
+data/
+logs/
+app.log
+
+# Test
+coverage.out
+*.test
+.reports/

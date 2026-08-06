@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: passion-index
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.server.port }}
+          env:
+            - name: ENV
+              value: {{ .Values.server.env | quote }}
+            - name: PASSION_INDEX_PORT
+              value: {{ .Values.server.port | quote }}
+            - name: SILENT_LOG
+              value: {{ .Values.server.silentLog | quote }}
+            - name: MINERU_BACKEND
+              value: "hybrid-engine"
+          envFrom:
+            {{- range $name := tuple
+                .Values.secrets.database.existingSecret
+                .Values.secrets.oss.existingSecret
+                .Values.secrets.mineru.existingSecret
+                .Values.secrets.paddleOcr.existingSecret
+                .Values.secrets.deepseek.existingSecret
+                .Values.secrets.huoshang.existingSecret }}
+            {{- if $name }}
+            - secretRef:
+                name: {{ $name }}
+            {{- end }}
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

@@ -1,0 +1,61 @@
+# passion-index GraphQL schema — single domain (document) for MVP.
+#
+# Conventions:
+#   - Field names + argument names: snake_case (matches JSON output)
+#   - Query / Mutation method names: PascalCase (matches Go receiver convention)
+#   - All fields are non-nullable by default unless marked with trailing ?
+
+enum DocStatus {
+  PENDING
+  OCR
+  STRUCTURING
+  SUMMARY
+  DONE
+  FAILED
+}
+
+type Document {
+  doc_id: ID!
+  filename: String!
+  status: DocStatus!
+  processing_step: String
+  page_count: Int
+  error: String
+  created_at: Time!
+  updated_at: Time!
+  tree: TreeNode
+}
+
+type TreeNode {
+  node_id: ID!
+  title: String!
+  page_start: Int!
+  page_end: Int!
+  summary: String!
+  text: String
+  figures: [Figure!]!
+  nodes: [TreeNode!]!
+}
+
+type Figure {
+  name: String!
+  page: Int!
+  data: String
+  caption: String
+}
+
+type DocumentList {
+  items: [Document!]!
+  total: Int!
+}
+
+type Query {
+  GetDocumentByID(doc_id: ID!): Document
+  GetDocumentList(limit: Int!, offset: Int!): DocumentList!
+  GetDocumentNodesByPages(doc_id: ID!, pages: [Int!]!): [TreeNode!]!
+}
+
+type Mutation {
+  UploadDocument(file: Upload!): Document!
+  DeleteDocument(doc_id: ID!): Boolean!
+}
