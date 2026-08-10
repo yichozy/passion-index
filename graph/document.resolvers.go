@@ -9,10 +9,13 @@ import (
 	"fmt"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/dao"
 	"github.com/yichozy/hopebox/utils"
+	"gorm.io/gorm"
 	"github.com/yichozy/passion-index/graph/types"
 	"github.com/yichozy/passion-index/internal/orm_document"
+	"github.com/yichozy/passion-index/internal/orm_node"
 	"github.com/yichozy/passion-index/models"
 	"github.com/yichozy/passion-index/services/document_service"
 )
@@ -30,65 +33,71 @@ func (r *mutationResolver) UploadDocument(ctx context.Context, file graphql.Uplo
 	return &td, nil
 }
 
-// DeleteDocument — idempotent: deleting non-existent doc returns false.
+// DeleteDocument — soft-deletes nodes + document atomically. Idempotent.
 func (r *mutationResolver) DeleteDocument(ctx context.Context, docID string) (bool, error) {
-	result := dao.GetDB().WithContext(ctx).Where("doc_id = ?", docID).Delete(&models.Document{})
-	if result.Error != nil {
-		return false, fmt.Errorf("delete doc: %w", result.Error)
-	}
-	return result.RowsAffected > 0, nil
+	db := dao.GetDB().WithContext(ctx)
+	var deleted bool
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// Nodes first, then document — both soft-delete (DeletedAt set).
+		if e := tx.Where("doc_id = ?", docID).Delete(&models.Node{}).Error; e != nil {
+			return e
+		}
+		result := tx.Where("id = ?", docID).Delete(&models.Document{})
+		deleted = result.RowsAffected > 0
+		return result.Error
+	})
+	return deleted, err
 }
 
-// GetDocumentByID — single doc by id.
+// GetDocumentByID — single doc by id. Loads metadata + assembles tree from
+// nodes table.
 func (r *queryResolver) GetDocumentByID(ctx context.Context, docID string) (*types.Document, error) {
-	var doc models.Document
-	if err := dao.GetDB().WithContext(ctx).Where("doc_id = ?", docID).First(&doc).Error; err != nil {
+	doc, err := orm_document.GetDocumentByID(ctx, docID)
+	if err != nil {
 		return nil, err
 	}
+	if doc.ID == uuid.Nil {
+		return nil, nil
+	}
+
 	var td types.Document
-	tree := doc.Tree
-	doc.Tree = nil
 	if err := utils.CopyObj(doc, &td); err != nil {
 		return nil, fmt.Errorf("copy doc: %w", err)
 	}
-	doc.Tree = tree
-	if tree != nil {
+
+	// Assemble tree from nodes table
+	rows, err := orm_node.GetByDocID(ctx, docID)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) > 0 {
+		root := models.AssembleTree(rows)
 		var tt types.TreeNode
-		if err := utils.CopyObj(tree, &tt); err != nil {
+		if err := utils.CopyObj(root, &tt); err != nil {
 			return nil, fmt.Errorf("copy tree: %w", err)
 		}
 		td.Tree = &tt
 	}
+
 	return &td, nil
 }
 
-// GetDocumentList — paginated list of all documents. Count + paginated
-// fetch live in orm_document; this resolver just converts to GraphQL types.
+// GetDocumentList — paginated list of all documents (metadata only, no tree).
 func (r *queryResolver) GetDocumentList(ctx context.Context, limit int, offset int) (*types.DocumentList, error) {
 	docs, total, err := orm_document.ListDocuments(ctx, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 
-	type_documents := make([]*types.Document, 0, len(docs))
+	items := make([]*types.Document, 0, len(docs))
 	for i := range docs {
-		var type_document types.Document
-		tree := docs[i].Tree
-		docs[i].Tree = nil
-		if err := utils.CopyObj(&docs[i], &type_document); err != nil {
+		var td types.Document
+		if err := utils.CopyObj(&docs[i], &td); err != nil {
 			return nil, fmt.Errorf("copy doc: %w", err)
 		}
-		docs[i].Tree = tree
-		if tree != nil {
-			var type_tree_node types.TreeNode
-			if err := utils.CopyObj(tree, &type_tree_node); err != nil {
-				return nil, fmt.Errorf("copy tree: %w", err)
-			}
-			type_document.Tree = &type_tree_node
-		}
-		type_documents = append(type_documents, &type_document)
+		items = append(items, &td)
 	}
-	return &types.DocumentList{Items: type_documents, Total: int(total)}, nil
+	return &types.DocumentList{Items: items, Total: int(total)}, nil
 }
 
 // GetDocumentNodeByNodeID — single tree node by doc_id + node_id.
@@ -107,23 +116,21 @@ func (r *queryResolver) GetDocumentNodeByNodeID(ctx context.Context, docID strin
 	return &tn, nil
 }
 
-// GetDocumentNodesByPages — TreeNodes covering the requested pages,
-// deduplicated by node_id. Tree loading + page-list traversal + dedupe
-// all live in document_service; this resolver just converts to GraphQL types.
+// GetDocumentNodesByPages — TreeNodes covering the requested pages.
 func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID string, pages []int) ([]*types.TreeNode, error) {
 	nodes, err := document_service.GetDocumentNodesByPages(ctx, docID, pages)
 	if err != nil {
 		return nil, err
 	}
-	type_node := make([]*types.TreeNode, 0, len(nodes))
+	out := make([]*types.TreeNode, 0, len(nodes))
 	for _, n := range nodes {
 		var tn types.TreeNode
 		if err := utils.CopyObj(n, &tn); err != nil {
 			return nil, fmt.Errorf("copy node: %w", err)
 		}
-		type_node = append(type_node, &tn)
+		out = append(out, &tn)
 	}
-	return type_node, nil
+	return out, nil
 }
 
 // Mutation returns MutationResolver implementation.

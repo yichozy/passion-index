@@ -7,7 +7,7 @@ replicaCount: 1
 
 image:
   repository: registry-vpc.ap-southeast-1.aliyuncs.com/knewta/passion-index
-  tag: "v0.1.0"               # empty → use chart appVersion
+  tag: "v0.1.2"               # empty → use chart appVersion
   pullPolicy: IfNotPresent
   pullSecrets:
     - name: aliyun-acr-sg
@@ -25,8 +25,8 @@ server:
   # gorm SQL logging toggle (read by hopebox/dao).
   silentLog: "false"
   # LLM model selection for leaf-node summaries. Leave empty to use code defaults.
-  leafModel: deepseek-v4-flash
-  leafFallbackModel: HUOSHANG-doubao-seed-evolving
+  leafModel: HUOSHANG-doubao-seed-evolving
+  leafFallbackModel: deepseek-v4-flash
 
 # Sensitive values + service connection info. Create these Secrets out-of-band.
 # The chart maps each key explicitly into container env vars. Leave

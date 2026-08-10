@@ -50,9 +50,9 @@ type DirectiveRoot struct {
 type ComplexityRoot struct {
 	Document struct {
 		CreatedAt      func(childComplexity int) int
-		DocID          func(childComplexity int) int
 		Error          func(childComplexity int) int
 		Filename       func(childComplexity int) int
+		ID             func(childComplexity int) int
 		PageCount      func(childComplexity int) int
 		ProcessingStep func(childComplexity int) int
 		Status         func(childComplexity int) int
@@ -133,13 +133,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Document.CreatedAt(childComplexity), true
 
-	case "Document.doc_id":
-		if e.complexity.Document.DocID == nil {
-			break
-		}
-
-		return e.complexity.Document.DocID(childComplexity), true
-
 	case "Document.error":
 		if e.complexity.Document.Error == nil {
 			break
@@ -153,6 +146,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Document.Filename(childComplexity), true
+
+	case "Document.id":
+		if e.complexity.Document.ID == nil {
+			break
+		}
+
+		return e.complexity.Document.ID(childComplexity), true
 
 	case "Document.page_count":
 		if e.complexity.Document.PageCount == nil {
@@ -868,8 +868,8 @@ func (ec *executionContext) field___Type_fields_argsIncludeDeprecated(
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _Document_doc_id(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Document_doc_id(ctx, field)
+func (ec *executionContext) _Document_id(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Document_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -882,7 +882,7 @@ func (ec *executionContext) _Document_doc_id(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.DocID, nil
+		return obj.ID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -899,7 +899,7 @@ func (ec *executionContext) _Document_doc_id(ctx context.Context, field graphql.
 	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Document_doc_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Document_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Document",
 		Field:      field,
@@ -1309,8 +1309,8 @@ func (ec *executionContext) fieldContext_DocumentList_items(_ context.Context, f
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "doc_id":
-				return ec.fieldContext_Document_doc_id(ctx, field)
+			case "id":
+				return ec.fieldContext_Document_id(ctx, field)
 			case "filename":
 				return ec.fieldContext_Document_filename(ctx, field)
 			case "status":
@@ -1587,8 +1587,8 @@ func (ec *executionContext) fieldContext_Mutation_UploadDocument(ctx context.Con
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "doc_id":
-				return ec.fieldContext_Document_doc_id(ctx, field)
+			case "id":
+				return ec.fieldContext_Document_id(ctx, field)
 			case "filename":
 				return ec.fieldContext_Document_filename(ctx, field)
 			case "status":
@@ -1714,8 +1714,8 @@ func (ec *executionContext) fieldContext_Query_GetDocumentByID(ctx context.Conte
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "doc_id":
-				return ec.fieldContext_Document_doc_id(ctx, field)
+			case "id":
+				return ec.fieldContext_Document_id(ctx, field)
 			case "filename":
 				return ec.fieldContext_Document_filename(ctx, field)
 			case "status":
@@ -4432,8 +4432,8 @@ func (ec *executionContext) _Document(ctx context.Context, sel ast.SelectionSet,
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Document")
-		case "doc_id":
-			out.Values[i] = ec._Document_doc_id(ctx, field, obj)
+		case "id":
+			out.Values[i] = ec._Document_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

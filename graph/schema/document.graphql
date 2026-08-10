@@ -15,7 +15,7 @@ enum DocStatus {
 }
 
 type Document {
-  doc_id: ID!
+  id: ID!
   filename: String!
   status: DocStatus!
   processing_step: String

@@ -15,7 +15,10 @@ func DoAutoMigrate() {
 	ctx := context.Background()
 	db := dao.GetDB().WithContext(ctx)
 
-	if err := db.AutoMigrate(&models.Document{}); err != nil {
+	if err := db.AutoMigrate(
+		&models.Document{},
+		&models.Node{},
+	); err != nil {
 		log.Errorf(ctx, "AutoMigrate failed: %v", err)
 		return
 	}

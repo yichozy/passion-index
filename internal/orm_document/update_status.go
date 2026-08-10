@@ -11,6 +11,6 @@ import (
 func UpdateStatus(ctx context.Context, docID, status string) {
 	dao.GetDB().WithContext(ctx).
 		Model(&models.Document{}).
-		Where("doc_id = ?", docID).
+		Where("id = ?", docID).
 		Update("status", status)
 }

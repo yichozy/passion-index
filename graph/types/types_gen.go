@@ -11,7 +11,7 @@ import (
 )
 
 type Document struct {
-	DocID          string    `json:"doc_id"`
+	ID             string    `json:"id"`
 	Filename       string    `json:"filename"`
 	Status         DocStatus `json:"status"`
 	ProcessingStep *string   `json:"processing_step,omitempty"`

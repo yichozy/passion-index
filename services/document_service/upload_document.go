@@ -35,11 +35,11 @@ func UploadDocument(ctx context.Context, reader io.Reader, filename string) (*mo
 	}
 
 	doc := &models.Document{
-		DocID:    doc_id,
 		Filename: filename,
 		FileKey:  file_key,
 		Status:   models.StatusPending,
 	}
+	doc.ID = id
 	if err := orm_document.Create(ctx, doc); err != nil {
 		return nil, fmt.Errorf("create doc row: %w", err)
 	}

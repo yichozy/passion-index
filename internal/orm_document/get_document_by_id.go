@@ -15,7 +15,7 @@ import (
 // distinguish "not found" from "DB down".
 func GetDocumentByID(ctx context.Context, docID string) (models.Document, error) {
 	var doc models.Document
-	result := dao.GetDB().WithContext(ctx).Where("doc_id = ?", docID).First(&doc)
+	result := dao.GetDB().WithContext(ctx).Where("id = ?", docID).First(&doc)
 	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return doc, result.Error
 	}

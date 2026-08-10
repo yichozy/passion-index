@@ -15,6 +15,7 @@ import (
 	"github.com/yichozy/hopebox/mineru_popo"
 	"github.com/yichozy/hopebox/mineru_private"
 	"github.com/yichozy/passion-index/internal/orm_document"
+	"github.com/yichozy/passion-index/internal/orm_node"
 	"github.com/yichozy/passion-index/models"
 )
 
@@ -82,7 +83,6 @@ func GenerateDocumentTree(ctx context.Context, doc_id string) (err error) {
 
 	root_node, page_count := ConvertPopoResultToTree(popo_doc)
 
-	doc.Tree = root_node
 	doc.PageCount = page_count
 	orm_document.Update(ctx, &doc)
 	log.Infof(ctx, "pipeline[%s]: structuring done — %d nodes, %d pages", doc_id, len(root_node.Nodes), page_count)
@@ -134,8 +134,13 @@ func GenerateDocumentTree(ctx context.Context, doc_id string) (err error) {
 
 	log.Infof(ctx, "pipeline[%s]: summary done", doc_id)
 
-	// Done — single Save persists the updated tree (with summaries) AND
-	// atomically marks the document DONE.
+	// Flatten the in-memory tree (with summaries) into node rows and persist.
+	rows := root_node.FlattenTree(doc.ID)
+	if err := orm_node.Create(ctx, rows); err != nil {
+		return fmt.Errorf("insert nodes: %w", err)
+	}
+
+	// Done — update document metadata.
 	doc.Status = models.StatusDone
 	orm_document.Update(ctx, &doc)
 	log.Infof(ctx, "pipeline[%s] done", doc_id)
