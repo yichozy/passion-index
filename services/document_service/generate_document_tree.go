@@ -23,7 +23,11 @@ import (
 // Return value signals step failure to the deferred FAILED-status update;
 // callers fire-and-forget (goroutine) and discard it.
 func GenerateDocumentTree(ctx context.Context, doc_id string) (err error) {
-	doc := orm_document.GetDocumentByID(ctx, doc_id)
+	doc, err := orm_document.GetDocumentByID(ctx, doc_id)
+	if err != nil {
+		log.Errorf(ctx, "pipeline[%s]: get document failed: %v", doc_id, err)
+		return
+	}
 
 	defer func() {
 		if err != nil {

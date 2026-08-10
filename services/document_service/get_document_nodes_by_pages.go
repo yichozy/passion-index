@@ -8,48 +8,47 @@ import (
 )
 
 // GetDocumentNodesByPages loads the document tree for doc_id and returns
-// the covering node for each page in `pages`, deduplicated by NodeID (a
-// node spanning multiple requested pages is returned once). Pages with no
-// covering node are skipped. Returns (nil, nil) if the document has no
-// tree yet or pages is empty.
+// all nodes whose [PageStart, PageEnd] range covers each page in `pages`,
+// deduplicated by NodeID. Pages with no covering node are skipped.
+// Returns (nil, nil) if the document has no tree yet or pages is empty.
 func GetDocumentNodesByPages(ctx context.Context, doc_id string, pages []int) ([]*models.Node, error) {
-	root := orm_document.GetDocumentByID(ctx, doc_id).Tree
-	if root == nil || len(pages) == 0 {
+	doc, err := orm_document.GetDocumentByID(ctx, doc_id)
+	if err != nil {
+		return nil, err
+	}
+	if doc.Tree == nil || len(pages) == 0 {
 		return nil, nil
 	}
+
 	seen_nodes := make(map[string]bool)
 	var nodes []*models.Node
 	for _, page := range pages {
-		node := getNodesByPage(root, page)
-		if node == nil || seen_nodes[node.NodeID] {
-			continue
+		for _, node := range getNodesByPage(doc.Tree, page) {
+			if seen_nodes[node.NodeID] {
+				continue
+			}
+			seen_nodes[node.NodeID] = true
+			nodes = append(nodes, node)
 		}
-		seen_nodes[node.NodeID] = true
-		nodes = append(nodes, node)
 	}
 	return nodes, nil
 }
 
-// getNodesByPage returns the deepest descendant of root (excluding root
-// itself, which is the synthetic NodeID="0000") whose [PageStart, PageEnd]
-// range contains page, or nil if no node covers it.
-func getNodesByPage(root *models.Node, page int) *models.Node {
+// getNodesByPage returns all nodes (excluding the synthetic root 0000)
+// whose [PageStart, PageEnd] range contains the given page.
+func getNodesByPage(root *models.Node, page int) []*models.Node {
+	var nodes []*models.Node
 	for i := range root.Nodes {
-		if node := getNodesByPageDFS(&root.Nodes[i], page); node != nil {
-			return node
-		}
+		collectNodesByPage(&root.Nodes[i], page, &nodes)
 	}
-	return nil
+	return nodes
 }
 
-func getNodesByPageDFS(node *models.Node, page int) *models.Node {
-	if page < node.PageStart || page > node.PageEnd {
-		return nil
+func collectNodesByPage(node *models.Node, page int, out *[]*models.Node) {
+	if page >= node.PageStart && page <= node.PageEnd {
+		*out = append(*out, node)
 	}
 	for i := range node.Nodes {
-		if deeper_node := getNodesByPageDFS(&node.Nodes[i], page); deeper_node != nil {
-			return deeper_node
-		}
+		collectNodesByPage(&node.Nodes[i], page, out)
 	}
-	return node
 }

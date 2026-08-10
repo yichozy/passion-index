@@ -11,9 +11,12 @@ import (
 // node_id, or (nil, nil) if the document has no tree or the node_id is not
 // found.
 func GetDocumentNode(ctx context.Context, doc_id, node_id string) (*models.Node, error) {
-	root := orm_document.GetDocumentByID(ctx, doc_id).Tree
-	if root == nil {
+	doc, err := orm_document.GetDocumentByID(ctx, doc_id)
+	if err != nil {
+		return nil, err
+	}
+	if doc.Tree == nil {
 		return nil, nil
 	}
-	return root.FindByNodeID(node_id), nil
+	return doc.Tree.FindByNodeID(node_id), nil
 }
