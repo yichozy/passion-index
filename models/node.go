@@ -28,3 +28,17 @@ func (n *Node) WalkLeaves(visit func(*Node)) {
 		n.Nodes[i].WalkLeaves(visit)
 	}
 }
+
+// FindByNodeID returns the descendant node (including n itself) whose NodeID
+// matches, or nil if not found.
+func (n *Node) FindByNodeID(nodeID string) *Node {
+	if n.NodeID == nodeID {
+		return n
+	}
+	for i := range n.Nodes {
+		if found := n.Nodes[i].FindByNodeID(nodeID); found != nil {
+			return found
+		}
+	}
+	return nil
+}

@@ -52,6 +52,7 @@ type DocumentList {
 type Query {
   GetDocumentByID(doc_id: ID!): Document
   GetDocumentList(limit: Int!, offset: Int!): DocumentList!
+  GetDocumentNodeByNodeID(doc_id: ID!, node_id: ID!): TreeNode
   GetDocumentNodesByPages(doc_id: ID!, pages: [Int!]!): [TreeNode!]!
 }
 

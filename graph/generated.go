@@ -80,6 +80,7 @@ type ComplexityRoot struct {
 	Query struct {
 		GetDocumentByID         func(childComplexity int, docID string) int
 		GetDocumentList         func(childComplexity int, limit int, offset int) int
+		GetDocumentNodeByNodeID func(childComplexity int, docID string, nodeID string) int
 		GetDocumentNodesByPages func(childComplexity int, docID string, pages []int) int
 	}
 
@@ -102,6 +103,7 @@ type MutationResolver interface {
 type QueryResolver interface {
 	GetDocumentByID(ctx context.Context, docID string) (*types.Document, error)
 	GetDocumentList(ctx context.Context, limit int, offset int) (*types.DocumentList, error)
+	GetDocumentNodeByNodeID(ctx context.Context, docID string, nodeID string) (*types.TreeNode, error)
 	GetDocumentNodesByPages(ctx context.Context, docID string, pages []int) ([]*types.TreeNode, error)
 }
 
@@ -276,6 +278,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.GetDocumentList(childComplexity, args["limit"].(int), args["offset"].(int)), true
+
+	case "Query.GetDocumentNodeByNodeID":
+		if e.complexity.Query.GetDocumentNodeByNodeID == nil {
+			break
+		}
+
+		args, err := ec.field_Query_GetDocumentNodeByNodeID_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetDocumentNodeByNodeID(childComplexity, args["doc_id"].(string), args["node_id"].(string)), true
 
 	case "Query.GetDocumentNodesByPages":
 		if e.complexity.Query.GetDocumentNodesByPages == nil {
@@ -601,6 +615,57 @@ func (ec *executionContext) field_Query_GetDocumentList_argsOffset(
 	}
 
 	var zeroVal int
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_GetDocumentNodeByNodeID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_GetDocumentNodeByNodeID_argsDocID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["doc_id"] = arg0
+	arg1, err := ec.field_Query_GetDocumentNodeByNodeID_argsNodeID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["node_id"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Query_GetDocumentNodeByNodeID_argsDocID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	if _, ok := rawArgs["doc_id"]; !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doc_id"))
+	if tmp, ok := rawArgs["doc_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_GetDocumentNodeByNodeID_argsNodeID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	if _, ok := rawArgs["node_id"]; !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("node_id"))
+	if tmp, ok := rawArgs["node_id"]; ok {
+		return ec.unmarshalNID2string(ctx, tmp)
+	}
+
+	var zeroVal string
 	return zeroVal, nil
 }
 
@@ -1740,6 +1805,76 @@ func (ec *executionContext) fieldContext_Query_GetDocumentList(ctx context.Conte
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_GetDocumentList_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_GetDocumentNodeByNodeID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_GetDocumentNodeByNodeID(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetDocumentNodeByNodeID(rctx, fc.Args["doc_id"].(string), fc.Args["node_id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*types.TreeNode)
+	fc.Result = res
+	return ec.marshalOTreeNode2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐTreeNode(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_GetDocumentNodeByNodeID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "node_id":
+				return ec.fieldContext_TreeNode_node_id(ctx, field)
+			case "title":
+				return ec.fieldContext_TreeNode_title(ctx, field)
+			case "page_start":
+				return ec.fieldContext_TreeNode_page_start(ctx, field)
+			case "page_end":
+				return ec.fieldContext_TreeNode_page_end(ctx, field)
+			case "summary":
+				return ec.fieldContext_TreeNode_summary(ctx, field)
+			case "text":
+				return ec.fieldContext_TreeNode_text(ctx, field)
+			case "figures":
+				return ec.fieldContext_TreeNode_figures(ctx, field)
+			case "nodes":
+				return ec.fieldContext_TreeNode_nodes(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TreeNode", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_GetDocumentNodeByNodeID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -4552,6 +4687,25 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "GetDocumentNodeByNodeID":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_GetDocumentNodeByNodeID(ctx, field)
 				return res
 			}
 

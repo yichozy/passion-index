@@ -91,6 +91,22 @@ func (r *queryResolver) GetDocumentList(ctx context.Context, limit int, offset i
 	return &types.DocumentList{Items: type_documents, Total: int(total)}, nil
 }
 
+// GetDocumentNodeByNodeID — single tree node by doc_id + node_id.
+func (r *queryResolver) GetDocumentNodeByNodeID(ctx context.Context, docID string, nodeID string) (*types.TreeNode, error) {
+	node, err := document_service.GetDocumentNode(ctx, docID, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	if node == nil {
+		return nil, nil
+	}
+	var tn types.TreeNode
+	if err := utils.CopyObj(node, &tn); err != nil {
+		return nil, fmt.Errorf("copy node: %w", err)
+	}
+	return &tn, nil
+}
+
 // GetDocumentNodesByPages — TreeNodes covering the requested pages,
 // deduplicated by node_id. Tree loading + page-list traversal + dedupe
 // all live in document_service; this resolver just converts to GraphQL types.

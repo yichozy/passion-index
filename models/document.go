@@ -19,8 +19,8 @@ import (
 type Document struct {
 	DocID     string    `gorm:"primaryKey" json:"doc_id"`
 	Filename  string    `gorm:"not null" json:"filename"`
-	FileKey   string    `gorm:"not null" json:"file_key"`     // OSS object key for the PDF
-	Status    string    `gorm:"index;not null" json:"status"` // uppercase: PROCESSING / COMPLETED / FAILED
+	FileKey   string    `gorm:"not null" json:"file_key"`
+	Status    string    `gorm:"index;not null" json:"status"`
 	PageCount int       `json:"page_count"`
 	Error     string    `json:"error"`
 	Tree      *Node     `gorm:"type:jsonb;serializer:json;index:idx_documents_tree,type:gin" json:"tree"`
