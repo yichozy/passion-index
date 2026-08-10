@@ -30,21 +30,104 @@ spec:
               value: {{ .Values.server.port | quote }}
             - name: SILENT_LOG
               value: {{ .Values.server.silentLog | quote }}
+            - name: PASSION_INDEX_LEAF_MODEL
+              value: {{ .Values.server.leafModel | quote }}
+            - name: PASSION_INDEX_LEAF_FALLBACK_MODEL
+              value: {{ .Values.server.leafFallbackModel | quote }}
+            {{- if .Values.secrets.database.existingSecret }}
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database.existingSecret }}
+                  key: {{ .Values.secrets.database.hostKey }}
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database.existingSecret }}
+                  key: {{ .Values.secrets.database.portKey }}
+            - name: POSTGRES_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database.existingSecret }}
+                  key: {{ .Values.secrets.database.usernameKey }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database.existingSecret }}
+                  key: {{ .Values.secrets.database.passwordKey }}
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database.existingSecret }}
+                  key: {{ .Values.secrets.database.databaseKey }}
+            {{- end }}
+            {{- if .Values.secrets.oss.existingSecret }}
+            - name: ALIYUN_OSS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.oss.existingSecret }}
+                  key: {{ .Values.secrets.oss.accessKeyKey }}
+            - name: ALIYUN_OSS_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.oss.existingSecret }}
+                  key: {{ .Values.secrets.oss.accessSecretKey }}
+            - name: ALIYUN_OSS_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.oss.existingSecret }}
+                  key: {{ .Values.secrets.oss.bucketKey }}
+            - name: ALIYUN_OSS_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.oss.existingSecret }}
+                  key: {{ .Values.secrets.oss.endpointKey }}
+            {{- end }}
+            {{- if .Values.secrets.mineru.existingSecret }}
+            - name: MINERU_PRIVATE_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.mineru.existingSecret }}
+                  key: {{ .Values.secrets.mineru.privateBaseUrlKey }}
+            - name: MINERU_POPO_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.mineru.existingSecret }}
+                  key: {{ .Values.secrets.mineru.popoBaseUrlKey }}
+            - name: MINERU_PRIVATE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.mineru.existingSecret }}
+                  key: {{ .Values.secrets.mineru.privateTokenKey }}
+            - name: MINERU_POPO_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.mineru.existingSecret }}
+                  key: {{ .Values.secrets.mineru.popoTokenKey }}
+            {{- end }}
+            {{- if .Values.secrets.paddleOcr.existingSecret }}
+            - name: PADDLE_OCR_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.paddleOcr.existingSecret }}
+                  key: {{ .Values.secrets.paddleOcr.apiKeyKey }}
+            {{- end }}
+            {{- if .Values.secrets.deepseek.existingSecret }}
+            - name: DEEP_SEEK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.deepseek.existingSecret }}
+                  key: {{ .Values.secrets.deepseek.apiKeyKey }}
+            {{- end }}
+            {{- if .Values.secrets.huoshang.existingSecret }}
+            - name: HUO_SHANG_ARK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.huoshang.existingSecret }}
+                  key: {{ .Values.secrets.huoshang.apiKeyKey }}
+            {{- end }}
             - name: MINERU_BACKEND
               value: "hybrid-engine"
-          envFrom:
-            {{- range $name := tuple
-                .Values.secrets.database.existingSecret
-                .Values.secrets.oss.existingSecret
-                .Values.secrets.mineru.existingSecret
-                .Values.secrets.paddleOcr.existingSecret
-                .Values.secrets.deepseek.existingSecret
-                .Values.secrets.huoshang.existingSecret }}
-            {{- if $name }}
-            - secretRef:
-                name: {{ $name }}
-            {{- end }}
-            {{- end }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:

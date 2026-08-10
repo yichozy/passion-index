@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/vektah/gqlparser/v2 v2.5.28
-	github.com/yichozy/hopebox v0.0.1030
+	github.com/yichozy/hopebox v0.0.1031
 )
 
 require (

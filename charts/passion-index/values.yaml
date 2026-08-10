@@ -6,8 +6,8 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/yichozy/passion-index
-  tag: ""               # empty → use chart appVersion
+  repository: registry-vpc.ap-southeast-1.aliyuncs.com/knewta/passion-index
+  tag: "v0.1.0"               # empty → use chart appVersion
   pullPolicy: IfNotPresent
   pullSecrets:
     - name: aliyun-acr-sg
@@ -16,21 +16,24 @@ service:
   type: ClusterIP
   port: 8900
 
-# App-level config. Non-secret values go into the ConfigMap the chart
-# mounts via envFrom; secret values are referenced in `secrets` below.
+# App-level config. Non-secret values are rendered directly as env vars; secret
+# values are also rendered explicitly from the secret refs below.
 server:
   # ENV=prod skips hopebox/env's .env loading; prod uses container-injected env.
   env: prod
   port: 8900            # container port; matches what main.go listens on
   # gorm SQL logging toggle (read by hopebox/dao).
   silentLog: "false"
+  # LLM model selection for leaf-node summaries. Leave empty to use code defaults.
+  leafModel: deepseek-v4-flash
+  leafFallbackModel: HUOSHANG-doubao-seed-evolving
 
-# Sensitive values + service connection info. Create these Secrets out-of-band;
-# chart just mounts them via envFrom. Each block's *Key fields document which
-# env vars the Secret is expected to contain — they're not parsed by the
-# chart, just docs. Leave existingSecret empty to skip mounting that source.
+# Sensitive values + service connection info. Create these Secrets out-of-band.
+# The chart maps each key explicitly into container env vars. Leave
+# existingSecret empty to skip mounting that source.
 secrets:
-  # PostgreSQL — full connection info bundled so it can be rotated as a unit.
+  # PostgreSQL — secret keeps legacy PASSION_INDEX_POSTGRES_* keys; deployment
+  # maps them into runtime POSTGRES_* env vars for hopebox/dao.
   database:
     existingSecret: "postgres"
     hostKey: PASSION_INDEX_POSTGRES_HOST
@@ -87,4 +90,3 @@ readinessProbe:
     port: http
   initialDelaySeconds: 10
   periodSeconds: 10
-

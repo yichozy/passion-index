@@ -3,6 +3,7 @@ package document_service
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -14,14 +15,12 @@ import (
 )
 
 const (
-	leafSummaryModel         = llm_types.DeepSeekV4Flash
-	leafSummaryFallbackModel = llm_types.DoubleSeedEvolving
-	leafSummaryTimeout       = 90 * time.Second
-	leafSummaryConcurrency   = 8
+	leafSummaryTimeout     = 90 * time.Second
+	leafSummaryConcurrency = 8
 )
 
 // leafSummarySystemPrompt is the system prompt for leaf-node summarization.
-const leafSummarySystemPrompt = "You summarize a document section. Return a 1-2 sentence description of what this section covers, integrating information from both the text and the figures. Return the description only."
+const leafSummarySystemPrompt = "You are given a section of a document. Your task is to generate a concise description of the main points covered in this section, integrating information from both the text and the figures. Return the description only. Do not include any other text."
 
 // SummarizeDocumentTree fills each leaf node's Summary in parallel with
 // bounded concurrency. Non-leaf nodes and the synthetic root (NodeID="0000")
@@ -31,6 +30,15 @@ const leafSummarySystemPrompt = "You summarize a document section. Return a 1-2 
 func SummarizeDocumentTree(ctx context.Context, root *models.Node, image_urls map[string]string) {
 	if root == nil || len(root.Nodes) == 0 {
 		return
+	}
+
+	model := os.Getenv("PASSION_INDEX_LEAF_MODEL")
+	if model == "" {
+		model = llm_types.DeepSeekV4Flash
+	}
+	fallback := os.Getenv("PASSION_INDEX_LEAF_FALLBACK_MODEL")
+	if fallback == "" {
+		fallback = llm_types.DoubleSeedEvolving
 	}
 
 	g := gatlin.NewGroup(ctx, leafSummaryConcurrency)
@@ -70,11 +78,11 @@ func SummarizeDocumentTree(ctx context.Context, root *models.Node, image_urls ma
 			}
 
 			resp, err := llm.LLMChat(ctx, llm_types.ChatKwargs{
-				ModelName:    leafSummaryModel,
+				ModelName:    model,
 				SystemPrompt: leafSummarySystemPrompt,
 				UserPrompt:   builder.String(),
 				UserImage:    images,
-			}, leafSummaryFallbackModel, nil, nil, nil, nil, leafSummaryTimeout)
+			}, fallback, nil, nil, nil, nil, leafSummaryTimeout)
 			if err != nil {
 				log.Warnf(ctx, "summary: leaf LLM failed (title=%q): %v", node.Title, err)
 				return nil // swallow — pipeline continues, Summary stays ""
