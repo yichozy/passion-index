@@ -50,11 +50,24 @@ type DocumentList {
   total: Int!
 }
 
+type SearchMatch {
+  node_id: Int!
+  score: Float!
+}
+
+type SearchResult {
+  doc_id: ID!
+  filename: String!
+  score: Float!
+  matches: [SearchMatch!]!
+}
+
 type Query {
   GetDocumentByID(doc_id: ID!): Document
   GetDocumentList(limit: Int!, offset: Int!): DocumentList!
   GetDocumentNodeByNodeID(doc_id: ID!, node_id: Int!): TreeNode
   GetDocumentNodesByPages(doc_id: ID!, pages: [Int!]!): [TreeNode!]!
+  SearchDocuments(query: String!, doc_ids: [ID!], limit: Int = 20): [SearchResult!]!
 }
 
 type Mutation {

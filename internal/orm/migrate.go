@@ -23,5 +23,25 @@ func DoAutoMigrate() {
 		return
 	}
 
+	// Full-text search: generated tsvector column + GIN index.
+	// gorm can't express GENERATED columns via struct tags, so raw SQL.
+	// Title weight A (highest), summary B, text C (lowest).
+	stmts := []string{
+		`DO $$ BEGIN
+			ALTER TABLE nodes ADD COLUMN IF NOT EXISTS search_vector tsvector
+				GENERATED ALWAYS AS (
+					setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+					setweight(to_tsvector('english', coalesce(summary, '')), 'B') ||
+					setweight(to_tsvector('english', coalesce(text, '')), 'C')
+				) STORED;
+		EXCEPTION WHEN OTHERS THEN NULL; END $$`,
+		`CREATE INDEX IF NOT EXISTS idx_nodes_search ON nodes USING GIN (search_vector)`,
+	}
+	for _, sql := range stmts {
+		if err := db.Exec(sql).Error; err != nil {
+			log.Warnf(ctx, "migration stmt failed: %v", err)
+		}
+	}
+
 	log.Info(ctx, "AutoMigrate Done")
 }

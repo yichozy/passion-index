@@ -133,6 +133,27 @@ func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID strin
 	return out, nil
 }
 
+// SearchDocuments — full-text search across documents.
+func (r *queryResolver) SearchDocuments(ctx context.Context, query string, docIds []string, limit *int) ([]*types.SearchResult, error) {
+	l := 10
+	if limit != nil {
+		l = *limit
+	}
+	results, err := document_service.SearchDocuments(ctx, query, docIds, l)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*types.SearchResult, len(results))
+	for i := range results {
+		var sr types.SearchResult
+		if err := utils.CopyObj(results[i], &sr); err != nil {
+			return nil, fmt.Errorf("copy search result: %w", err)
+		}
+		out[i] = &sr
+	}
+	return out, nil
+}
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 

@@ -40,6 +40,18 @@ type Mutation struct {
 type Query struct {
 }
 
+type SearchMatch struct {
+	NodeID int     `json:"node_id"`
+	Score  float64 `json:"score"`
+}
+
+type SearchResult struct {
+	DocID    string         `json:"doc_id"`
+	Filename string         `json:"filename"`
+	Score    float64        `json:"score"`
+	Matches  []*SearchMatch `json:"matches"`
+}
+
 type TreeNode struct {
 	NodeID    int         `json:"node_id"`
 	ParentID  *int        `json:"parent_id,omitempty"`
