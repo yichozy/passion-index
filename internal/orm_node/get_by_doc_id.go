@@ -12,7 +12,7 @@ func GetByDocID(ctx context.Context, doc_id string) ([]models.Node, error) {
 	var rows []models.Node
 	err := dao.GetDB().WithContext(ctx).
 		Where("doc_id = ?", doc_id).
-		Order("node_id").
+		Order("id").
 		Find(&rows).Error
 	return rows, err
 }

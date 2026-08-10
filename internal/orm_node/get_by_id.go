@@ -8,10 +8,10 @@ import (
 )
 
 // GetByID returns a single node row by doc_id + node_id.
-func GetByID(ctx context.Context, doc_id, node_id string) (models.Node, error) {
+func GetByID(ctx context.Context, docID string, nodeID int) (models.Node, error) {
 	var row models.Node
 	err := dao.GetDB().WithContext(ctx).
-		Where("doc_id = ? AND node_id = ?", doc_id, node_id).
+		Where("doc_id = ? AND id = ?", docID, nodeID).
 		First(&row).Error
 	return row, err
 }

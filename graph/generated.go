@@ -80,7 +80,7 @@ type ComplexityRoot struct {
 	Query struct {
 		GetDocumentByID         func(childComplexity int, docID string) int
 		GetDocumentList         func(childComplexity int, limit int, offset int) int
-		GetDocumentNodeByNodeID func(childComplexity int, docID string, nodeID string) int
+		GetDocumentNodeByNodeID func(childComplexity int, docID string, nodeID int) int
 		GetDocumentNodesByPages func(childComplexity int, docID string, pages []int) int
 	}
 
@@ -90,6 +90,7 @@ type ComplexityRoot struct {
 		Nodes     func(childComplexity int) int
 		PageEnd   func(childComplexity int) int
 		PageStart func(childComplexity int) int
+		ParentID  func(childComplexity int) int
 		Summary   func(childComplexity int) int
 		Text      func(childComplexity int) int
 		Title     func(childComplexity int) int
@@ -103,7 +104,7 @@ type MutationResolver interface {
 type QueryResolver interface {
 	GetDocumentByID(ctx context.Context, docID string) (*types.Document, error)
 	GetDocumentList(ctx context.Context, limit int, offset int) (*types.DocumentList, error)
-	GetDocumentNodeByNodeID(ctx context.Context, docID string, nodeID string) (*types.TreeNode, error)
+	GetDocumentNodeByNodeID(ctx context.Context, docID string, nodeID int) (*types.TreeNode, error)
 	GetDocumentNodesByPages(ctx context.Context, docID string, pages []int) ([]*types.TreeNode, error)
 }
 
@@ -289,7 +290,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Query.GetDocumentNodeByNodeID(childComplexity, args["doc_id"].(string), args["node_id"].(string)), true
+		return e.complexity.Query.GetDocumentNodeByNodeID(childComplexity, args["doc_id"].(string), args["node_id"].(int)), true
 
 	case "Query.GetDocumentNodesByPages":
 		if e.complexity.Query.GetDocumentNodesByPages == nil {
@@ -337,6 +338,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.TreeNode.PageStart(childComplexity), true
+
+	case "TreeNode.parent_id":
+		if e.complexity.TreeNode.ParentID == nil {
+			break
+		}
+
+		return e.complexity.TreeNode.ParentID(childComplexity), true
 
 	case "TreeNode.summary":
 		if e.complexity.TreeNode.Summary == nil {
@@ -654,18 +662,18 @@ func (ec *executionContext) field_Query_GetDocumentNodeByNodeID_argsDocID(
 func (ec *executionContext) field_Query_GetDocumentNodeByNodeID_argsNodeID(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (string, error) {
+) (int, error) {
 	if _, ok := rawArgs["node_id"]; !ok {
-		var zeroVal string
+		var zeroVal int
 		return zeroVal, nil
 	}
 
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("node_id"))
 	if tmp, ok := rawArgs["node_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
+		return ec.unmarshalNInt2int(ctx, tmp)
 	}
 
-	var zeroVal string
+	var zeroVal int
 	return zeroVal, nil
 }
 
@@ -1249,6 +1257,8 @@ func (ec *executionContext) fieldContext_Document_tree(_ context.Context, field 
 			switch field.Name {
 			case "node_id":
 				return ec.fieldContext_TreeNode_node_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_TreeNode_parent_id(ctx, field)
 			case "title":
 				return ec.fieldContext_TreeNode_title(ctx, field)
 			case "page_start":
@@ -1825,7 +1835,7 @@ func (ec *executionContext) _Query_GetDocumentNodeByNodeID(ctx context.Context, 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetDocumentNodeByNodeID(rctx, fc.Args["doc_id"].(string), fc.Args["node_id"].(string))
+		return ec.resolvers.Query().GetDocumentNodeByNodeID(rctx, fc.Args["doc_id"].(string), fc.Args["node_id"].(int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1849,6 +1859,8 @@ func (ec *executionContext) fieldContext_Query_GetDocumentNodeByNodeID(ctx conte
 			switch field.Name {
 			case "node_id":
 				return ec.fieldContext_TreeNode_node_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_TreeNode_parent_id(ctx, field)
 			case "title":
 				return ec.fieldContext_TreeNode_title(ctx, field)
 			case "page_start":
@@ -1922,6 +1934,8 @@ func (ec *executionContext) fieldContext_Query_GetDocumentNodesByPages(ctx conte
 			switch field.Name {
 			case "node_id":
 				return ec.fieldContext_TreeNode_node_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_TreeNode_parent_id(ctx, field)
 			case "title":
 				return ec.fieldContext_TreeNode_title(ctx, field)
 			case "page_start":
@@ -2111,9 +2125,9 @@ func (ec *executionContext) _TreeNode_node_id(ctx context.Context, field graphql
 		}
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(int)
 	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_TreeNode_node_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2123,7 +2137,48 @@ func (ec *executionContext) fieldContext_TreeNode_node_id(_ context.Context, fie
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TreeNode_parent_id(ctx context.Context, field graphql.CollectedField, obj *types.TreeNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TreeNode_parent_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ParentID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*int)
+	fc.Result = res
+	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TreeNode_parent_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2441,6 +2496,8 @@ func (ec *executionContext) fieldContext_TreeNode_nodes(_ context.Context, field
 			switch field.Name {
 			case "node_id":
 				return ec.fieldContext_TreeNode_node_id(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_TreeNode_parent_id(ctx, field)
 			case "title":
 				return ec.fieldContext_TreeNode_title(ctx, field)
 			case "page_start":
@@ -4784,6 +4841,8 @@ func (ec *executionContext) _TreeNode(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "parent_id":
+			out.Values[i] = ec._TreeNode_parent_id(ctx, field, obj)
 		case "title":
 			out.Values[i] = ec._TreeNode_title(ctx, field, obj)
 			if out.Values[i] == graphql.Null {

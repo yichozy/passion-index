@@ -27,7 +27,8 @@ type Document {
 }
 
 type TreeNode {
-  node_id: ID!
+  node_id: Int!
+  parent_id: Int
   title: String!
   page_start: Int!
   page_end: Int!
@@ -52,7 +53,7 @@ type DocumentList {
 type Query {
   GetDocumentByID(doc_id: ID!): Document
   GetDocumentList(limit: Int!, offset: Int!): DocumentList!
-  GetDocumentNodeByNodeID(doc_id: ID!, node_id: ID!): TreeNode
+  GetDocumentNodeByNodeID(doc_id: ID!, node_id: Int!): TreeNode
   GetDocumentNodesByPages(doc_id: ID!, pages: [Int!]!): [TreeNode!]!
 }
 

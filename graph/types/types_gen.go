@@ -41,7 +41,8 @@ type Query struct {
 }
 
 type TreeNode struct {
-	NodeID    string      `json:"node_id"`
+	NodeID    int         `json:"node_id"`
+	ParentID  *int        `json:"parent_id,omitempty"`
 	Title     string      `json:"title"`
 	PageStart int         `json:"page_start"`
 	PageEnd   int         `json:"page_end"`

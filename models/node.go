@@ -1,32 +1,33 @@
 package models
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
 
 // Node is both the gorm model for the nodes table and the in-memory tree
-// structure. The Nodes field (children) is gorm:"-" — assembled in memory.
-//
-// The synthetic root (NodeID="0000") is NOT stored in the nodes table;
-// AssembleTree creates it on the fly.
+// structure. Composite PK (DocID, ID) — ID is a DFS counter (1, 2, 3...).
+// ParentID nil = child of synthetic root (ID=0, not stored).
+// The Nodes field is gorm:"-" — assembled in memory.
 type Node struct {
-	BaseUUIDModel
-	DocID    uuid.UUID `gorm:"index;type:uuid" json:"doc_id"`
-	NodeID   string    `gorm:"index" json:"node_id"`   // "0001" tree position
-	ParentID string    `gorm:"index" json:"parent_id"` // parent's NodeID, empty = root child
+	ID       int       `gorm:"primaryKey" json:"node_id"`
+	DocID    uuid.UUID `gorm:"primaryKey;type:uuid" json:"doc_id"`
+	ParentID *int      `gorm:"index" json:"parent_id"`
 
-	Title     string   `json:"title"`
-	PageStart int      `json:"page_start"`
-	PageEnd   int      `json:"page_end"`
-	Summary   string   `json:"summary"`
-	Text      string   `json:"text"`
-	Figures   []Figure `gorm:"type:jsonb;serializer:json" json:"figures,omitempty"`
+	Title     string         `json:"title"`
+	PageStart int            `json:"page_start"`
+	PageEnd   int            `json:"page_end"`
+	Summary   string         `json:"summary"`
+	Text      string         `json:"text"`
+	Figures   []Figure       `gorm:"type:jsonb;serializer:json" json:"figures,omitempty"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	Nodes []Node `gorm:"-" json:"nodes,omitempty"`
 }
 
 func (Node) TableName() string { return "nodes" }
 
-// WalkLeaves visits every leaf node (a node without children) under n in
-// depth-first order, calling visit with a pointer to each.
+// WalkLeaves visits every leaf node under n in depth-first order.
 func (n *Node) WalkLeaves(visit func(*Node)) {
 	if len(n.Nodes) == 0 {
 		visit(n)
@@ -37,35 +38,33 @@ func (n *Node) WalkLeaves(visit func(*Node)) {
 	}
 }
 
-// FindByNodeID returns the descendant node (including n itself) whose NodeID
-// matches, or nil if not found.
-func (n *Node) FindByNodeID(nodeID string) *Node {
-	if n.NodeID == nodeID {
+// FindByID returns the descendant node whose ID matches, or nil.
+func (n *Node) FindByID(id int) *Node {
+	if n.ID == id {
 		return n
 	}
 	for i := range n.Nodes {
-		if found := n.Nodes[i].FindByNodeID(nodeID); found != nil {
+		if found := n.Nodes[i].FindByID(id); found != nil {
 			return found
 		}
 	}
 	return nil
 }
 
-// FlattenTree converts an in-memory Node tree (rooted at NodeID="0000")
-// into a flat slice of Node rows for DB insertion. The synthetic root itself
-// is NOT included — only its descendants.
+// FlattenTree converts an in-memory Node tree into flat rows for DB.
+// The synthetic root (ID=0) is NOT included — only its descendants.
 func (root *Node) FlattenTree(docID uuid.UUID) []Node {
 	var rows []Node
 	for i := range root.Nodes {
-		root.Nodes[i].flattenNode(docID, "", &rows)
+		root.Nodes[i].flattenNode(docID, nil, &rows)
 	}
 	return rows
 }
 
-func (n *Node) flattenNode(docID uuid.UUID, parentID string, rows *[]Node) {
+func (n *Node) flattenNode(docID uuid.UUID, parentID *int, rows *[]Node) {
 	row := Node{
 		DocID:     docID,
-		NodeID:    n.NodeID,
+		ID:        n.ID,
 		ParentID:  parentID,
 		Title:     n.Title,
 		PageStart: n.PageStart,
@@ -75,41 +74,43 @@ func (n *Node) flattenNode(docID uuid.UUID, parentID string, rows *[]Node) {
 		Figures:   n.Figures,
 	}
 	*rows = append(*rows, row)
+	pid := n.ID
 	for i := range n.Nodes {
-		n.Nodes[i].flattenNode(docID, n.NodeID, rows)
+		n.Nodes[i].flattenNode(docID, &pid, rows)
 	}
 }
 
-// AssembleTree rebuilds an in-memory Node tree from flat Node rows.
-// Creates a synthetic root (NodeID="0000").
+// AssembleTree rebuilds an in-memory Node tree from flat rows.
+// Uses top-down recursion: for each node, look up its children, recursively
+// populate their subtrees, then assign. This avoids the copy-before-children-
+// are-attached bug that plagues bottom-up approaches with []Node (value type).
 func AssembleTree(rows []Node) *Node {
-	root := &Node{NodeID: "0000"}
-	nodeMap := map[string]*Node{}
+	// Index: parent_id → direct children. Root children have nil ParentID.
+	children_by_parent := make(map[int][]Node)
+	var top_level []Node
 
 	for i := range rows {
-		n := &Node{
-			BaseUUIDModel: rows[i].BaseUUIDModel,
-			DocID:         rows[i].DocID,
-			NodeID:        rows[i].NodeID,
-			ParentID:      rows[i].ParentID,
-			Title:         rows[i].Title,
-			PageStart:     rows[i].PageStart,
-			PageEnd:       rows[i].PageEnd,
-			Summary:       rows[i].Summary,
-			Text:          rows[i].Text,
-			Figures:       rows[i].Figures,
-		}
-		nodeMap[n.NodeID] = n
-	}
-
-	for i := range rows {
-		n := nodeMap[rows[i].NodeID]
-		if rows[i].ParentID == "" {
-			root.Nodes = append(root.Nodes, *n)
-		} else if parent, ok := nodeMap[rows[i].ParentID]; ok {
-			parent.Nodes = append(parent.Nodes, *n)
+		node := rows[i]
+		node.Nodes = nil
+		if rows[i].ParentID == nil {
+			top_level = append(top_level, node)
+		} else {
+			parent_id := *rows[i].ParentID
+			children_by_parent[parent_id] = append(children_by_parent[parent_id], node)
 		}
 	}
 
-	return root
+	// Top-down: for each node, recursively attach its children by index.
+	var attach_subtree func(nodes []Node) []Node
+	attach_subtree = func(nodes []Node) []Node {
+		for i := range nodes {
+			children := children_by_parent[nodes[i].ID]
+			if len(children) > 0 {
+				nodes[i].Nodes = attach_subtree(children)
+			}
+		}
+		return nodes
+	}
+
+	return &Node{ID: 0, Nodes: attach_subtree(top_level)}
 }

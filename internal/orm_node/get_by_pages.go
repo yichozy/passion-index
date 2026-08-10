@@ -28,7 +28,7 @@ func GetByPages(ctx context.Context, docID string, pages []int) ([]models.Node, 
 	var rows []models.Node
 	err := dao.GetDB().WithContext(ctx).
 		Where(query, args...).
-		Order("node_id").
+		Order("id").
 		Find(&rows).Error
 	return rows, err
 }

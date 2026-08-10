@@ -12,12 +12,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/dao"
 	"github.com/yichozy/hopebox/utils"
-	"gorm.io/gorm"
 	"github.com/yichozy/passion-index/graph/types"
 	"github.com/yichozy/passion-index/internal/orm_document"
 	"github.com/yichozy/passion-index/internal/orm_node"
 	"github.com/yichozy/passion-index/models"
 	"github.com/yichozy/passion-index/services/document_service"
+	"gorm.io/gorm"
 )
 
 // UploadDocument — save PDF + create PROCESSING row + trigger background pipeline.
@@ -101,7 +101,7 @@ func (r *queryResolver) GetDocumentList(ctx context.Context, limit int, offset i
 }
 
 // GetDocumentNodeByNodeID — single tree node by doc_id + node_id.
-func (r *queryResolver) GetDocumentNodeByNodeID(ctx context.Context, docID string, nodeID string) (*types.TreeNode, error) {
+func (r *queryResolver) GetDocumentNodeByNodeID(ctx context.Context, docID string, nodeID int) (*types.TreeNode, error) {
 	node, err := document_service.GetDocumentNode(ctx, docID, nodeID)
 	if err != nil {
 		return nil, err

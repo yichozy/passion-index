@@ -8,9 +8,9 @@ import (
 )
 
 // UpdateSummary updates a single node's summary.
-func UpdateSummary(ctx context.Context, doc_id, node_id, summary string) error {
+func UpdateSummary(ctx context.Context, doc_id string, node_id int, summary string) error {
 	return dao.GetDB().WithContext(ctx).
 		Model(&models.Node{}).
-		Where("doc_id = ? AND node_id = ?", doc_id, node_id).
+		Where("doc_id = ? AND id = ?", doc_id, node_id).
 		Update("summary", summary).Error
 }

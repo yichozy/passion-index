@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetDocumentNode(ctx context.Context, doc_id, node_id string) (*models.Node, error) {
+func GetDocumentNode(ctx context.Context, doc_id string, node_id int) (*models.Node, error) {
 	node, err := orm_node.GetByID(ctx, doc_id, node_id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
