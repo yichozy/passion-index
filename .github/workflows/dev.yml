@@ -1,0 +1,30 @@
+name: PASSION INDEX RELEASE
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+env:
+  REGISTRY_NAMESPACE: knewta
+  SERVICE_NAME: passion-index
+  VERSION: ${{ github.ref_name }}
+  IMG_ALIYUN_REGISTRY: ${{ vars.ALIYUN_REGISTRY_SG }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check env variable
+        run: echo "VERSION=${{ env.VERSION }} SERVICE_NAME=${{ env.SERVICE_NAME }}"
+
+      - uses: actions/checkout@v3
+
+      - name: Login to Aliyun Registry
+        run: echo ${{ secrets.ALIYUN_REGISTRY_PASSWORD }} | docker login --username ${{ secrets.ALIYUN_REGISTRY_USERNAME }} --password-stdin ${{ env.IMG_ALIYUN_REGISTRY }}
+
+      - name: Build the Docker image
+        run: DOCKER_BUILDKIT=1 docker build --build-arg GITHUB_TOKEN=${{ secrets.GH_PACKAGES_TOKEN }} --no-cache --file ./Dockerfile --tag ${{ env.IMG_ALIYUN_REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ env.SERVICE_NAME }}:${{ env.VERSION }} .
+
+      - name: Push the Docker image
+        run: docker push ${{ env.IMG_ALIYUN_REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ env.SERVICE_NAME }}:${{ env.VERSION }}
