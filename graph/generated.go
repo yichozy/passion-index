@@ -50,12 +50,16 @@ type DirectiveRoot struct {
 type ComplexityRoot struct {
 	Document struct {
 		CreatedAt      func(childComplexity int) int
+		Doi            func(childComplexity int) int
 		Error          func(childComplexity int) int
 		Filename       func(childComplexity int) int
 		ID             func(childComplexity int) int
+		Indication     func(childComplexity int) int
+		LiteratureType func(childComplexity int) int
 		PageCount      func(childComplexity int) int
 		ProcessingStep func(childComplexity int) int
 		Status         func(childComplexity int) int
+		Study          func(childComplexity int) int
 		Tree           func(childComplexity int) int
 		UpdatedAt      func(childComplexity int) int
 	}
@@ -74,7 +78,7 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		DeleteDocument func(childComplexity int, docID string) int
-		UploadDocument func(childComplexity int, file graphql.Upload) int
+		UploadDocument func(childComplexity int, file graphql.Upload, doi *string, indication []string, study []string, literatureType []string) int
 	}
 
 	Query struct {
@@ -82,7 +86,7 @@ type ComplexityRoot struct {
 		GetDocumentList         func(childComplexity int, limit int, offset int) int
 		GetDocumentNodeByNodeID func(childComplexity int, docID string, nodeID int) int
 		GetDocumentNodesByPages func(childComplexity int, docID string, pages []int) int
-		SearchDocuments         func(childComplexity int, query string, docIds []string, limit *int) int
+		SearchDocuments         func(childComplexity int, query string, docIds []string, doi *string, indication []string, study []string, literatureType []string, limit *int) int
 	}
 
 	SearchMatch struct {
@@ -111,7 +115,7 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	UploadDocument(ctx context.Context, file graphql.Upload) (*types.Document, error)
+	UploadDocument(ctx context.Context, file graphql.Upload, doi *string, indication []string, study []string, literatureType []string) (*types.Document, error)
 	DeleteDocument(ctx context.Context, docID string) (bool, error)
 }
 type QueryResolver interface {
@@ -119,7 +123,7 @@ type QueryResolver interface {
 	GetDocumentList(ctx context.Context, limit int, offset int) (*types.DocumentList, error)
 	GetDocumentNodeByNodeID(ctx context.Context, docID string, nodeID int) (*types.TreeNode, error)
 	GetDocumentNodesByPages(ctx context.Context, docID string, pages []int) ([]*types.TreeNode, error)
-	SearchDocuments(ctx context.Context, query string, docIds []string, limit *int) ([]*types.SearchResult, error)
+	SearchDocuments(ctx context.Context, query string, docIds []string, doi *string, indication []string, study []string, literatureType []string, limit *int) ([]*types.SearchResult, error)
 }
 
 type executableSchema struct {
@@ -148,6 +152,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Document.CreatedAt(childComplexity), true
 
+	case "Document.doi":
+		if e.complexity.Document.Doi == nil {
+			break
+		}
+
+		return e.complexity.Document.Doi(childComplexity), true
+
 	case "Document.error":
 		if e.complexity.Document.Error == nil {
 			break
@@ -169,6 +180,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Document.ID(childComplexity), true
 
+	case "Document.indication":
+		if e.complexity.Document.Indication == nil {
+			break
+		}
+
+		return e.complexity.Document.Indication(childComplexity), true
+
+	case "Document.literature_type":
+		if e.complexity.Document.LiteratureType == nil {
+			break
+		}
+
+		return e.complexity.Document.LiteratureType(childComplexity), true
+
 	case "Document.page_count":
 		if e.complexity.Document.PageCount == nil {
 			break
@@ -189,6 +214,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Document.Status(childComplexity), true
+
+	case "Document.study":
+		if e.complexity.Document.Study == nil {
+			break
+		}
+
+		return e.complexity.Document.Study(childComplexity), true
 
 	case "Document.tree":
 		if e.complexity.Document.Tree == nil {
@@ -268,7 +300,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UploadDocument(childComplexity, args["file"].(graphql.Upload)), true
+		return e.complexity.Mutation.UploadDocument(childComplexity, args["file"].(graphql.Upload), args["doi"].(*string), args["indication"].([]string), args["study"].([]string), args["literature_type"].([]string)), true
 
 	case "Query.GetDocumentByID":
 		if e.complexity.Query.GetDocumentByID == nil {
@@ -328,7 +360,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Query.SearchDocuments(childComplexity, args["query"].(string), args["doc_ids"].([]string), args["limit"].(*int)), true
+		return e.complexity.Query.SearchDocuments(childComplexity, args["query"].(string), args["doc_ids"].([]string), args["doi"].(*string), args["indication"].([]string), args["study"].([]string), args["literature_type"].([]string), args["limit"].(*int)), true
 
 	case "SearchMatch.node_id":
 		if e.complexity.SearchMatch.NodeID == nil {
@@ -595,6 +627,26 @@ func (ec *executionContext) field_Mutation_UploadDocument_args(ctx context.Conte
 		return nil, err
 	}
 	args["file"] = arg0
+	arg1, err := ec.field_Mutation_UploadDocument_argsDoi(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["doi"] = arg1
+	arg2, err := ec.field_Mutation_UploadDocument_argsIndication(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["indication"] = arg2
+	arg3, err := ec.field_Mutation_UploadDocument_argsStudy(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["study"] = arg3
+	arg4, err := ec.field_Mutation_UploadDocument_argsLiteratureType(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["literature_type"] = arg4
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_UploadDocument_argsFile(
@@ -612,6 +664,78 @@ func (ec *executionContext) field_Mutation_UploadDocument_argsFile(
 	}
 
 	var zeroVal graphql.Upload
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_UploadDocument_argsDoi(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	if _, ok := rawArgs["doi"]; !ok {
+		var zeroVal *string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doi"))
+	if tmp, ok := rawArgs["doi"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_UploadDocument_argsIndication(
+	ctx context.Context,
+	rawArgs map[string]any,
+) ([]string, error) {
+	if _, ok := rawArgs["indication"]; !ok {
+		var zeroVal []string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("indication"))
+	if tmp, ok := rawArgs["indication"]; ok {
+		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
+	}
+
+	var zeroVal []string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_UploadDocument_argsStudy(
+	ctx context.Context,
+	rawArgs map[string]any,
+) ([]string, error) {
+	if _, ok := rawArgs["study"]; !ok {
+		var zeroVal []string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("study"))
+	if tmp, ok := rawArgs["study"]; ok {
+		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
+	}
+
+	var zeroVal []string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_UploadDocument_argsLiteratureType(
+	ctx context.Context,
+	rawArgs map[string]any,
+) ([]string, error) {
+	if _, ok := rawArgs["literature_type"]; !ok {
+		var zeroVal []string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("literature_type"))
+	if tmp, ok := rawArgs["literature_type"]; ok {
+		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
+	}
+
+	var zeroVal []string
 	return zeroVal, nil
 }
 
@@ -809,11 +933,31 @@ func (ec *executionContext) field_Query_SearchDocuments_args(ctx context.Context
 		return nil, err
 	}
 	args["doc_ids"] = arg1
-	arg2, err := ec.field_Query_SearchDocuments_argsLimit(ctx, rawArgs)
+	arg2, err := ec.field_Query_SearchDocuments_argsDoi(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["limit"] = arg2
+	args["doi"] = arg2
+	arg3, err := ec.field_Query_SearchDocuments_argsIndication(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["indication"] = arg3
+	arg4, err := ec.field_Query_SearchDocuments_argsStudy(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["study"] = arg4
+	arg5, err := ec.field_Query_SearchDocuments_argsLiteratureType(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["literature_type"] = arg5
+	arg6, err := ec.field_Query_SearchDocuments_argsLimit(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg6
 	return args, nil
 }
 func (ec *executionContext) field_Query_SearchDocuments_argsQuery(
@@ -846,6 +990,78 @@ func (ec *executionContext) field_Query_SearchDocuments_argsDocIds(
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doc_ids"))
 	if tmp, ok := rawArgs["doc_ids"]; ok {
 		return ec.unmarshalOID2ᚕstringᚄ(ctx, tmp)
+	}
+
+	var zeroVal []string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_SearchDocuments_argsDoi(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*string, error) {
+	if _, ok := rawArgs["doi"]; !ok {
+		var zeroVal *string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doi"))
+	if tmp, ok := rawArgs["doi"]; ok {
+		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	}
+
+	var zeroVal *string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_SearchDocuments_argsIndication(
+	ctx context.Context,
+	rawArgs map[string]any,
+) ([]string, error) {
+	if _, ok := rawArgs["indication"]; !ok {
+		var zeroVal []string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("indication"))
+	if tmp, ok := rawArgs["indication"]; ok {
+		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
+	}
+
+	var zeroVal []string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_SearchDocuments_argsStudy(
+	ctx context.Context,
+	rawArgs map[string]any,
+) ([]string, error) {
+	if _, ok := rawArgs["study"]; !ok {
+		var zeroVal []string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("study"))
+	if tmp, ok := rawArgs["study"]; ok {
+		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
+	}
+
+	var zeroVal []string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_SearchDocuments_argsLiteratureType(
+	ctx context.Context,
+	rawArgs map[string]any,
+) ([]string, error) {
+	if _, ok := rawArgs["literature_type"]; !ok {
+		var zeroVal []string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("literature_type"))
+	if tmp, ok := rawArgs["literature_type"]; ok {
+		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
 	}
 
 	var zeroVal []string
@@ -1273,6 +1489,182 @@ func (ec *executionContext) fieldContext_Document_error(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _Document_doi(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Document_doi(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Doi, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Document_doi(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Document",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Document_indication(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Document_indication(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Indication, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]string)
+	fc.Result = res
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Document_indication(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Document",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Document_study(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Document_study(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Study, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]string)
+	fc.Result = res
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Document_study(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Document",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Document_literature_type(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Document_literature_type(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.LiteratureType, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]string)
+	fc.Result = res
+	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Document_literature_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Document",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Document_created_at(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Document_created_at(ctx, field)
 	if err != nil {
@@ -1473,6 +1865,14 @@ func (ec *executionContext) fieldContext_DocumentList_items(_ context.Context, f
 				return ec.fieldContext_Document_page_count(ctx, field)
 			case "error":
 				return ec.fieldContext_Document_error(ctx, field)
+			case "doi":
+				return ec.fieldContext_Document_doi(ctx, field)
+			case "indication":
+				return ec.fieldContext_Document_indication(ctx, field)
+			case "study":
+				return ec.fieldContext_Document_study(ctx, field)
+			case "literature_type":
+				return ec.fieldContext_Document_literature_type(ctx, field)
 			case "created_at":
 				return ec.fieldContext_Document_created_at(ctx, field)
 			case "updated_at":
@@ -1714,7 +2114,7 @@ func (ec *executionContext) _Mutation_UploadDocument(ctx context.Context, field 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UploadDocument(rctx, fc.Args["file"].(graphql.Upload))
+		return ec.resolvers.Mutation().UploadDocument(rctx, fc.Args["file"].(graphql.Upload), fc.Args["doi"].(*string), fc.Args["indication"].([]string), fc.Args["study"].([]string), fc.Args["literature_type"].([]string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1751,6 +2151,14 @@ func (ec *executionContext) fieldContext_Mutation_UploadDocument(ctx context.Con
 				return ec.fieldContext_Document_page_count(ctx, field)
 			case "error":
 				return ec.fieldContext_Document_error(ctx, field)
+			case "doi":
+				return ec.fieldContext_Document_doi(ctx, field)
+			case "indication":
+				return ec.fieldContext_Document_indication(ctx, field)
+			case "study":
+				return ec.fieldContext_Document_study(ctx, field)
+			case "literature_type":
+				return ec.fieldContext_Document_literature_type(ctx, field)
 			case "created_at":
 				return ec.fieldContext_Document_created_at(ctx, field)
 			case "updated_at":
@@ -1878,6 +2286,14 @@ func (ec *executionContext) fieldContext_Query_GetDocumentByID(ctx context.Conte
 				return ec.fieldContext_Document_page_count(ctx, field)
 			case "error":
 				return ec.fieldContext_Document_error(ctx, field)
+			case "doi":
+				return ec.fieldContext_Document_doi(ctx, field)
+			case "indication":
+				return ec.fieldContext_Document_indication(ctx, field)
+			case "study":
+				return ec.fieldContext_Document_study(ctx, field)
+			case "literature_type":
+				return ec.fieldContext_Document_literature_type(ctx, field)
 			case "created_at":
 				return ec.fieldContext_Document_created_at(ctx, field)
 			case "updated_at":
@@ -2124,7 +2540,7 @@ func (ec *executionContext) _Query_SearchDocuments(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().SearchDocuments(rctx, fc.Args["query"].(string), fc.Args["doc_ids"].([]string), fc.Args["limit"].(*int))
+		return ec.resolvers.Query().SearchDocuments(rctx, fc.Args["query"].(string), fc.Args["doc_ids"].([]string), fc.Args["doi"].(*string), fc.Args["indication"].([]string), fc.Args["study"].([]string), fc.Args["literature_type"].([]string), fc.Args["limit"].(*int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4987,6 +5403,26 @@ func (ec *executionContext) _Document(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = ec._Document_page_count(ctx, field, obj)
 		case "error":
 			out.Values[i] = ec._Document_error(ctx, field, obj)
+		case "doi":
+			out.Values[i] = ec._Document_doi(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "indication":
+			out.Values[i] = ec._Document_indication(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "study":
+			out.Values[i] = ec._Document_study(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "literature_type":
+			out.Values[i] = ec._Document_literature_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "created_at":
 			out.Values[i] = ec._Document_created_at(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -6184,6 +6620,36 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {
 	res, err := graphql.UnmarshalTime(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -6612,6 +7078,42 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	_ = ctx
 	res := graphql.MarshalInt(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {

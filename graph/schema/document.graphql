@@ -21,6 +21,10 @@ type Document {
   processing_step: String
   page_count: Int
   error: String
+  doi: String!
+  indication: [String!]!
+  study: [String!]!
+  literature_type: [String!]!
   created_at: Time!
   updated_at: Time!
   tree: TreeNode
@@ -67,10 +71,10 @@ type Query {
   GetDocumentList(limit: Int!, offset: Int!): DocumentList!
   GetDocumentNodeByNodeID(doc_id: ID!, node_id: Int!): TreeNode
   GetDocumentNodesByPages(doc_id: ID!, pages: [Int!]!): [TreeNode!]!
-  SearchDocuments(query: String!, doc_ids: [ID!], limit: Int = 20): [SearchResult!]!
+  SearchDocuments(query: String!, doc_ids: [ID!], doi: String, indication: [String!], study: [String!], literature_type: [String!], limit: Int = 10): [SearchResult!]!
 }
 
 type Mutation {
-  UploadDocument(file: Upload!): Document!
+  UploadDocument(file: Upload!, doi: String, indication: [String!], study: [String!], literature_type: [String!]): Document!
   DeleteDocument(doc_id: ID!): Boolean!
 }

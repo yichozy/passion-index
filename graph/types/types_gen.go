@@ -17,6 +17,10 @@ type Document struct {
 	ProcessingStep *string   `json:"processing_step,omitempty"`
 	PageCount      *int      `json:"page_count,omitempty"`
 	Error          *string   `json:"error,omitempty"`
+	Doi            string    `json:"doi"`
+	Indication     []string  `json:"indication"`
+	Study          []string  `json:"study"`
+	LiteratureType []string  `json:"literature_type"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 	Tree           *TreeNode `json:"tree,omitempty"`

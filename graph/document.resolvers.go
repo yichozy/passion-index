@@ -21,8 +21,12 @@ import (
 )
 
 // UploadDocument — save PDF + create PROCESSING row + trigger background pipeline.
-func (r *mutationResolver) UploadDocument(ctx context.Context, file graphql.Upload) (*types.Document, error) {
-	doc, err := document_service.UploadDocument(ctx, file.File, file.Filename)
+func (r *mutationResolver) UploadDocument(ctx context.Context, file graphql.Upload, doi *string, indication []string, study []string, literatureType []string) (*types.Document, error) {
+	doi_str := ""
+	if doi != nil {
+		doi_str = *doi
+	}
+	doc, err := document_service.UploadDocument(ctx, file.File, file.Filename, doi_str, indication, study, literatureType)
 	if err != nil {
 		return nil, err
 	}
@@ -134,12 +138,16 @@ func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID strin
 }
 
 // SearchDocuments — full-text search across documents.
-func (r *queryResolver) SearchDocuments(ctx context.Context, query string, docIds []string, limit *int) ([]*types.SearchResult, error) {
+func (r *queryResolver) SearchDocuments(ctx context.Context, query string, docIds []string, doi *string, indication []string, study []string, literatureType []string, limit *int) ([]*types.SearchResult, error) {
 	l := 10
 	if limit != nil {
 		l = *limit
 	}
-	results, err := document_service.SearchDocuments(ctx, query, docIds, l)
+	doi_str := ""
+	if doi != nil {
+		doi_str = *doi
+	}
+	results, err := document_service.SearchDocuments(ctx, query, docIds, doi_str, indication, study, literatureType, l)
 	if err != nil {
 		return nil, err
 	}

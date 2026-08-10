@@ -3,7 +3,6 @@ package document_service
 import (
 	"context"
 
-	"github.com/yichozy/passion-index/internal/orm_document"
 	"github.com/yichozy/passion-index/internal/orm_node"
 )
 
@@ -20,11 +19,9 @@ type SearchResult struct {
 }
 
 // SearchDocuments performs full-text search across documents.
-// Returns document-level results (grouped by doc_id, best score) with
-// node-level matches (node_id + score only). Client controls what to
-// display via GraphQL field selection.
-func SearchDocuments(ctx context.Context, query string, docIDs []string, limit int) ([]SearchResult, error) {
-	matched_nodes, err := orm_node.Search(ctx, query, docIDs, limit*5)
+// All filter parameters are optional and AND-combined.
+func SearchDocuments(ctx context.Context, query string, doc_ids []string, doi string, indication, study, literature_type []string, limit int) ([]SearchResult, error) {
+	matched_nodes, err := orm_node.Search(ctx, query, doc_ids, doi, indication, study, literature_type, limit*5)
 	if err != nil {
 		return nil, err
 	}
@@ -32,14 +29,14 @@ func SearchDocuments(ctx context.Context, query string, docIDs []string, limit i
 		return []SearchResult{}, nil
 	}
 
-	// Group matched nodes by document, tracking insertion order for stable output.
+	// Group by doc_id, track best score and first-seen order.
 	doc_by_id := map[string]*SearchResult{}
 	var doc_first_seen_order []string
 	for i := range matched_nodes {
 		doc_id := matched_nodes[i].DocID.String()
 		result, exists := doc_by_id[doc_id]
 		if !exists {
-			result = &SearchResult{DocID: doc_id}
+			result = &SearchResult{DocID: doc_id, Filename: matched_nodes[i].Filename}
 			doc_by_id[doc_id] = result
 			doc_first_seen_order = append(doc_first_seen_order, doc_id)
 		}
@@ -54,24 +51,13 @@ func SearchDocuments(ctx context.Context, query string, docIDs []string, limit i
 		})
 	}
 
-	// Collect results in first-seen order, truncate to limit documents.
+	// Collect in first-seen order, truncate to limit.
 	results := make([]SearchResult, 0, len(doc_first_seen_order))
-	var truncated_doc_ids []string
 	for _, doc_id := range doc_first_seen_order {
 		results = append(results, *doc_by_id[doc_id])
-		truncated_doc_ids = append(truncated_doc_ids, doc_id)
 		if len(results) >= limit {
 			break
 		}
-	}
-
-	// Batch-load filenames (single query, not N+1).
-	filenames, err := orm_document.GetFilenamesByIDs(ctx, truncated_doc_ids)
-	if err != nil {
-		return nil, err
-	}
-	for i := range results {
-		results[i].Filename = filenames[results[i].DocID]
 	}
 
 	return results, nil

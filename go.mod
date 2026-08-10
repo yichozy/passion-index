@@ -6,6 +6,7 @@ require (
 	github.com/99designs/gqlgen v0.17.75
 	github.com/gin-gonic/gin v1.10.1
 	github.com/google/uuid v1.6.0
+	github.com/lib/pq v1.10.9
 	github.com/vektah/gqlparser/v2 v2.5.28
 	github.com/yichozy/hopebox v0.0.1031
 	gorm.io/gorm v1.31.1
@@ -71,7 +72,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/lib/pq v1.10.9 // indirect
 	github.com/mark3labs/mcp-go v0.57.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mingrammer/commonregex v1.0.1 // indirect
