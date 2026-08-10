@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/vektah/gqlparser/v2 v2.5.28
 	github.com/yichozy/hopebox v0.0.1031
+	gorm.io/gorm v1.31.1
 )
 
 require (
@@ -133,5 +134,4 @@ require (
 	gorm.io/datatypes v1.2.6 // indirect
 	gorm.io/driver/mysql v1.5.6 // indirect
 	gorm.io/driver/postgres v1.6.0 // indirect
-	gorm.io/gorm v1.30.0 // indirect
 )
