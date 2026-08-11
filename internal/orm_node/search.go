@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/yichozy/hopebox/dao"
 	"github.com/yichozy/passion-index/models"
@@ -20,19 +21,19 @@ type NodeWithScore struct {
 // Search performs full-text search on node title + summary + text.
 // Joins documents table to apply metadata filters (doi, indication, study,
 // literature_type) and retrieve filename in a single query.
-func Search(ctx context.Context, query string, doc_ids []string, doi string, indication, study, literature_type []string, limit int) ([]NodeWithScore, error) {
+//
+// All filter parameters are optional — empty values are skipped.
+func Search(ctx context.Context, query string, doc_ids []uuid.UUID, doi string, indication, study, literature_type []string, limit int) ([]NodeWithScore, error) {
 	if limit <= 0 {
 		limit = 10
 	}
 
+	ts_query := "plainto_tsquery('english', ?)"
+	args := []interface{}{query}
+
 	var conditions []string
-	var args []interface{}
+	conditions = append(conditions, "n.search_vector @@ "+ts_query)
 
-	// Full-text search (always present)
-	conditions = append(conditions, "n.search_vector @@ plainto_tsquery('english', ?)")
-	args = append(args, query)
-
-	// Optional doc_ids filter
 	if len(doc_ids) > 0 {
 		placeholders := make([]string, len(doc_ids))
 		for i, id := range doc_ids {
@@ -41,8 +42,6 @@ func Search(ctx context.Context, query string, doc_ids []string, doi string, ind
 		}
 		conditions = append(conditions, "n.doc_id IN ("+strings.Join(placeholders, ",")+")")
 	}
-
-	// Optional metadata filters (applied on documents table via JOIN)
 	if doi != "" {
 		conditions = append(conditions, "d.doi = ?")
 		args = append(args, doi)
@@ -65,7 +64,7 @@ func Search(ctx context.Context, query string, doc_ids []string, doi string, ind
 	sql := `
 		SELECT n.doc_id, n.id, n.parent_id, n.title, n.summary, n.page_start, n.page_end,
 		       d.filename,
-		       ts_rank_cd(n.search_vector, plainto_tsquery('english', ?)) AS score
+		       ts_rank_cd(n.search_vector, ` + ts_query + `) AS score
 		FROM nodes n
 		JOIN documents d ON n.doc_id = d.id
 		WHERE ` + strings.Join(conditions, " AND ") + `

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/aliyun"
 	"github.com/yichozy/hopebox/log"
 	"github.com/yichozy/hopebox/mineru_popo"
@@ -23,7 +24,7 @@ import (
 // Status doubles as step indicator: OCR → STRUCTURING → SUMMARY → DONE.
 // Return value signals step failure to the deferred FAILED-status update;
 // callers fire-and-forget (goroutine) and discard it.
-func GenerateDocumentTree(ctx context.Context, doc_id string) (err error) {
+func GenerateDocumentTree(ctx context.Context, doc_id uuid.UUID) (err error) {
 	doc, err := orm_document.GetDocumentByID(ctx, doc_id)
 	if err != nil {
 		log.Errorf(ctx, "pipeline[%s]: get document failed: %v", doc_id, err)
@@ -35,14 +36,20 @@ func GenerateDocumentTree(ctx context.Context, doc_id string) (err error) {
 			log.Errorf(ctx, "pipeline[%s]: failed: %v", doc_id, err)
 			doc.Status = models.StatusFailed
 			doc.Error = err.Error()
-			orm_document.Update(ctx, &doc)
+			// err here shadows the outer named return — keep the original
+			// pipeline error intact for the caller even if this Update fails.
+			if err := orm_document.Update(ctx, &doc); err != nil {
+				log.Errorf(ctx, "pipeline[%s]: failed to record failure status: %v", doc_id, err)
+			}
 		}
 	}()
 
 	// Step 1: OCR — download PDF → MinerU → zip bytes
-	orm_document.UpdateStatus(ctx, doc_id, models.StatusOCR)
+	if err = orm_document.UpdateStatus(ctx, doc_id, models.StatusOCR); err != nil {
+		return fmt.Errorf("update status ocr: %w", err)
+	}
 
-	pdf_path := filepath.Join(os.TempDir(), doc_id+".pdf")
+	pdf_path := filepath.Join(os.TempDir(), doc_id.String()+".pdf")
 	oss, err := aliyun.NewOss()
 	if err != nil {
 		return fmt.Errorf("oss_init: %w", err)
@@ -69,7 +76,9 @@ func GenerateDocumentTree(ctx context.Context, doc_id string) (err error) {
 	log.Infof(ctx, "pipeline[%s]: ocr done — %d bytes", doc_id, len(zip_bytes))
 
 	// Step 2: Structuring — Popo build tree → map → persist
-	orm_document.UpdateStatus(ctx, doc_id, models.StatusStructuring)
+	if err = orm_document.UpdateStatus(ctx, doc_id, models.StatusStructuring); err != nil {
+		return fmt.Errorf("update status structuring: %w", err)
+	}
 
 	pdf_bytes, err := os.ReadFile(pdf_path)
 	if err != nil {
@@ -84,11 +93,15 @@ func GenerateDocumentTree(ctx context.Context, doc_id string) (err error) {
 	root_node, page_count := ConvertPopoResultToTree(popo_doc)
 
 	doc.PageCount = page_count
-	orm_document.Update(ctx, &doc)
+	if err = orm_document.Update(ctx, &doc); err != nil {
+		return fmt.Errorf("update page_count: %w", err)
+	}
 	log.Infof(ctx, "pipeline[%s]: structuring done — %d nodes, %d pages", doc_id, len(root_node.Nodes), page_count)
 
 	// Step 3: Summary — LLM bottom-up node summaries
-	orm_document.UpdateStatus(ctx, doc_id, models.StatusSummary)
+	if err = orm_document.UpdateStatus(ctx, doc_id, models.StatusSummary); err != nil {
+		return fmt.Errorf("update status summary: %w", err)
+	}
 
 	// Extract images from MinerU zip (<doc>/<subdir>/images/<hash>.jpg),
 	// persist each to OSS at passion-index/<docID>/images/<name>, and store
@@ -142,7 +155,9 @@ func GenerateDocumentTree(ctx context.Context, doc_id string) (err error) {
 
 	// Done — update document metadata.
 	doc.Status = models.StatusDone
-	orm_document.Update(ctx, &doc)
+	if err = orm_document.Update(ctx, &doc); err != nil {
+		return fmt.Errorf("update done status: %w", err)
+	}
 	log.Infof(ctx, "pipeline[%s] done", doc_id)
 	return nil
 }

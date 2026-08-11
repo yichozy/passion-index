@@ -1,8 +1,3 @@
-# GraphQL scalar types — cross-domain primitives.
-# Scalar → Go type mappings live in gqlgen.yml under `models:`.
-
-# Time: ISO 8601 timestamp, mapped to time.Time
 scalar Time
-
-# Upload: multipart file upload (https://gqlgen.com/reference/file-upload/)
 scalar Upload
+scalar UUID

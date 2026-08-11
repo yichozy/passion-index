@@ -1,6 +1,9 @@
 package models
 
-import "github.com/lib/pq"
+import (
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+)
 
 // Document is the documents table row.
 type Document struct {
@@ -14,6 +17,10 @@ type Document struct {
 	Indication     pq.StringArray `gorm:"type:text[]" json:"indication"`
 	Study          pq.StringArray `gorm:"type:text[]" json:"study"`
 	LiteratureType pq.StringArray `gorm:"type:text[]" json:"literature_type"`
+	FolderID       *uuid.UUID     `gorm:"index;type:uuid" json:"folder_id"`
+
+	// GORM relationship — see Folder for the constraint policy.
+	Folder *Folder `gorm:"foreignKey:FolderID;constraint:-" json:"-"`
 }
 
 // Document status constants — status doubles as the current pipeline step.

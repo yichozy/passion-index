@@ -1,0 +1,48 @@
+# passion-index GraphQL schema — folder domain.
+#
+# Folder hierarchy is exposed via two purpose-built queries instead of lazy
+# field resolvers:
+#   - GetFolder(id)       → thin metadata for a single folder
+#   - GetFolderTree(...)  → nested tree with counts, one resolver round-trip
+#
+# No @goField directives, no N+1 risk: each query knows exactly what to populate.
+
+# Folder is the thin metadata view.
+type Folder {
+  id: UUID!
+  name: String!
+  parent_id: UUID
+  created_at: Time!
+  updated_at: Time!
+}
+
+# FolderNode is the structured tree view: nested children + aggregate counts.
+# Returned by GetFolderTree, fully populated by the resolver in one round-trip.
+type FolderNode {
+  id: UUID!
+  name: String!
+  parent_id: UUID
+  document_count: Int!
+  folder_count: Int!
+  folders: [FolderNode!]!
+  created_at: Time!
+  updated_at: Time!
+}
+
+extend type Query {
+  # GetFolder returns metadata for a single folder. Null when not found.
+  GetFolder(id: UUID!): Folder
+
+  # GetFolderTree returns folder(s) as a nested tree with batched counts.
+  #   folder_id set  → tree rooted at that folder (one element in the result)
+  #   folder_id nil  → each top-level folder as its own tree root
+  #   depth          → max nesting level to expand (0 = just the root node(s),
+  #                     children accessible via folder_count but not inlined)
+  GetFolderTree(folder_id: UUID, depth: Int = 3): [FolderNode!]!
+}
+
+extend type Mutation {
+  CreateFolder(name: String!, parent_id: UUID): Folder!
+  DeleteFolder(id: UUID!): Boolean!
+  RenameFolder(id: UUID!, name: String!): Folder!
+}

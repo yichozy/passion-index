@@ -40,3 +40,6 @@ models:
   Upload:
     model:
       - github.com/99designs/gqlgen/graphql.Upload
+  UUID:
+    model:
+      - github.com/99designs/gqlgen/graphql.UUID

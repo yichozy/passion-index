@@ -8,22 +8,21 @@ import (
 	"io"
 	"strconv"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Document struct {
-	ID             string    `json:"id"`
-	Filename       string    `json:"filename"`
-	Status         DocStatus `json:"status"`
-	ProcessingStep *string   `json:"processing_step,omitempty"`
-	PageCount      *int      `json:"page_count,omitempty"`
-	Error          *string   `json:"error,omitempty"`
-	Doi            string    `json:"doi"`
-	Indication     []string  `json:"indication"`
-	Study          []string  `json:"study"`
-	LiteratureType []string  `json:"literature_type"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	Tree           *TreeNode `json:"tree,omitempty"`
+	ID        uuid.UUID `json:"id"`
+	Filename  string    `json:"filename"`
+	FolderID  uuid.UUID `json:"folder_id"`
+	Folder    *Folder   `json:"folder,omitempty"`
+	Status    DocStatus `json:"status"`
+	PageCount *int      `json:"page_count,omitempty"`
+	Error     *string   `json:"error,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Tree      *TreeNode `json:"tree,omitempty"`
 }
 
 type DocumentList struct {
@@ -38,6 +37,25 @@ type Figure struct {
 	Caption *string `json:"caption,omitempty"`
 }
 
+type Folder struct {
+	ID        uuid.UUID  `json:"id"`
+	Name      string     `json:"name"`
+	ParentID  *uuid.UUID `json:"parent_id,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+type FolderNode struct {
+	ID            uuid.UUID     `json:"id"`
+	Name          string        `json:"name"`
+	ParentID      *uuid.UUID    `json:"parent_id,omitempty"`
+	DocumentCount int           `json:"document_count"`
+	FolderCount   int           `json:"folder_count"`
+	Folders       []*FolderNode `json:"folders"`
+	CreatedAt     time.Time     `json:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at"`
+}
+
 type Mutation struct {
 }
 
@@ -50,7 +68,7 @@ type SearchMatch struct {
 }
 
 type SearchResult struct {
-	DocID    string         `json:"doc_id"`
+	DocID    uuid.UUID      `json:"doc_id"`
 	Filename string         `json:"filename"`
 	Score    float64        `json:"score"`
 	Matches  []*SearchMatch `json:"matches"`

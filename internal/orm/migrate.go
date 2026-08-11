@@ -17,6 +17,7 @@ func DoAutoMigrate() {
 	if err := db.AutoMigrate(
 		&models.Document{},
 		&models.Node{},
+		&models.Folder{},
 	); err != nil {
 		log.Errorf(ctx, "AutoMigrate failed: %v", err)
 		return

@@ -3,6 +3,7 @@ package document_service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/yichozy/passion-index/internal/orm_node"
 )
 
@@ -12,7 +13,7 @@ type SearchMatch struct {
 }
 
 type SearchResult struct {
-	DocID    string        `json:"doc_id"`
+	DocID    uuid.UUID     `json:"doc_id"`
 	Filename string        `json:"filename"`
 	Score    float64       `json:"score"`
 	Matches  []SearchMatch `json:"matches"`
@@ -20,7 +21,7 @@ type SearchResult struct {
 
 // SearchDocuments performs full-text search across documents.
 // All filter parameters are optional and AND-combined.
-func SearchDocuments(ctx context.Context, query string, doc_ids []string, doi string, indication, study, literature_type []string, limit int) ([]SearchResult, error) {
+func SearchDocuments(ctx context.Context, query string, doc_ids []uuid.UUID, doi string, indication, study, literature_type []string, limit int) ([]SearchResult, error) {
 	matched_nodes, err := orm_node.Search(ctx, query, doc_ids, doi, indication, study, literature_type, limit*5)
 	if err != nil {
 		return nil, err
@@ -30,10 +31,10 @@ func SearchDocuments(ctx context.Context, query string, doc_ids []string, doi st
 	}
 
 	// Group by doc_id, track best score and first-seen order.
-	doc_by_id := map[string]*SearchResult{}
-	var doc_first_seen_order []string
+	doc_by_id := map[uuid.UUID]*SearchResult{}
+	var doc_first_seen_order []uuid.UUID
 	for i := range matched_nodes {
-		doc_id := matched_nodes[i].DocID.String()
+		doc_id := matched_nodes[i].DocID
 		result, exists := doc_by_id[doc_id]
 		if !exists {
 			result = &SearchResult{DocID: doc_id, Filename: matched_nodes[i].Filename}

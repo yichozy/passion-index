@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/yichozy/hopebox/aliyun"
 	"github.com/yichozy/passion-index/internal/orm_document"
 	"github.com/yichozy/passion-index/models"
@@ -14,13 +13,12 @@ import (
 
 // UploadDocument reads the PDF, uploads it to OSS, creates a PENDING row
 // in DB, and kicks off background processing via GenerateDocumentTree.
-func UploadDocument(ctx context.Context, reader io.Reader, filename string, doi string, indication, study, literature_type []string) (*models.Document, error) {
+func UploadDocument(ctx context.Context, reader io.Reader, filename string, folder_id *uuid.UUID) (*models.Document, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return nil, fmt.Errorf("generate uuid: %w", err)
 	}
-	doc_id := id.String()
-	file_key := fmt.Sprintf("passion-index/%s/%s", doc_id, filename)
+	file_key := fmt.Sprintf("passion-index/%s/%s", id, filename)
 
 	data, err := io.ReadAll(reader)
 	if err != nil {
@@ -40,16 +38,13 @@ func UploadDocument(ctx context.Context, reader io.Reader, filename string, doi 
 		Filename:      filename,
 		FileKey:       file_key,
 		Status:        models.StatusPending,
-		DOI:           doi,
-		Indication:    pq.StringArray(indication),
-		Study:         pq.StringArray(study),
-		LiteratureType: pq.StringArray(literature_type),
+		FolderID:      folder_id,
 	}
 	if err := orm_document.Create(ctx, doc); err != nil {
 		return nil, fmt.Errorf("create doc row: %w", err)
 	}
 
-	go GenerateDocumentTree(context.WithoutCancel(ctx), doc_id)
+	go GenerateDocumentTree(context.WithoutCancel(ctx), id)
 
 	return doc, nil
 }

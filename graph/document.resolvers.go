@@ -10,23 +10,18 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/google/uuid"
-	"github.com/yichozy/hopebox/dao"
 	"github.com/yichozy/hopebox/utils"
 	"github.com/yichozy/passion-index/graph/types"
 	"github.com/yichozy/passion-index/internal/orm_document"
 	"github.com/yichozy/passion-index/internal/orm_node"
 	"github.com/yichozy/passion-index/models"
 	"github.com/yichozy/passion-index/services/document_service"
-	"gorm.io/gorm"
 )
 
-// UploadDocument — save PDF + create PROCESSING row + trigger background pipeline.
-func (r *mutationResolver) UploadDocument(ctx context.Context, file graphql.Upload, doi *string, indication []string, study []string, literatureType []string) (*types.Document, error) {
-	doi_str := ""
-	if doi != nil {
-		doi_str = *doi
-	}
-	doc, err := document_service.UploadDocument(ctx, file.File, file.Filename, doi_str, indication, study, literatureType)
+// UploadDocument reads the PDF, uploads it to OSS, creates a PENDING row in DB,
+// and kicks off background processing. folder_id required.
+func (r *mutationResolver) UploadDocument(ctx context.Context, file graphql.Upload, folderID uuid.UUID) (*types.Document, error) {
+	doc, err := document_service.UploadDocument(ctx, file.File, file.Filename, &folderID)
 	if err != nil {
 		return nil, err
 	}
@@ -37,40 +32,27 @@ func (r *mutationResolver) UploadDocument(ctx context.Context, file graphql.Uplo
 	return &td, nil
 }
 
-// DeleteDocument — soft-deletes nodes + document atomically. Idempotent.
-func (r *mutationResolver) DeleteDocument(ctx context.Context, docID string) (bool, error) {
-	db := dao.GetDB().WithContext(ctx)
-	var deleted bool
-	err := db.Transaction(func(tx *gorm.DB) error {
-		// Nodes first, then document — both soft-delete (DeletedAt set).
-		if e := tx.Where("doc_id = ?", docID).Delete(&models.Node{}).Error; e != nil {
-			return e
-		}
-		result := tx.Where("id = ?", docID).Delete(&models.Document{})
-		deleted = result.RowsAffected > 0
-		return result.Error
-	})
-	return deleted, err
+// DeleteDocument soft-deletes a document and its nodes atomically.
+func (r *mutationResolver) DeleteDocument(ctx context.Context, docID uuid.UUID) (bool, error) {
+	return orm_document.DeleteDocument(ctx, docID)
 }
 
-// GetDocumentByID — single doc by id. Loads metadata + assembles tree from
-// nodes table.
-func (r *queryResolver) GetDocumentByID(ctx context.Context, docID string) (*types.Document, error) {
-	doc, err := orm_document.GetDocumentByID(ctx, docID)
+// GetDocument returns a single document by ID with its parsed tree if any.
+// Null when not found.
+func (r *queryResolver) GetDocument(ctx context.Context, id uuid.UUID) (*types.Document, error) {
+	doc, err := orm_document.GetDocumentByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	if doc.ID == uuid.Nil {
 		return nil, nil
 	}
-
 	var td types.Document
-	if err := utils.CopyObj(doc, &td); err != nil {
+	if err := utils.CopyObj(&doc, &td); err != nil {
 		return nil, fmt.Errorf("copy doc: %w", err)
 	}
 
-	// Assemble tree from nodes table
-	rows, err := orm_node.GetByDocID(ctx, docID)
+	rows, err := orm_node.GetByDocID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -82,31 +64,45 @@ func (r *queryResolver) GetDocumentByID(ctx context.Context, docID string) (*typ
 		}
 		td.Tree = &tt
 	}
-
 	return &td, nil
 }
 
-// GetDocumentList — paginated list of all documents (metadata only, no tree).
-func (r *queryResolver) GetDocumentList(ctx context.Context, limit int, offset int) (*types.DocumentList, error) {
-	docs, total, err := orm_document.ListDocuments(ctx, limit, offset)
+// GetDocumentListByFolder lists documents under a folder with pagination.
+//
+//	recursive=false → documents directly in that folder
+//	recursive=true  → documents in folder + all descendants
+func (r *queryResolver) GetDocumentListByFolder(ctx context.Context, folderID uuid.UUID, recursive *bool, limit *int, offset *int) (*types.DocumentList, error) {
+	rec := false
+	if recursive != nil {
+		rec = *recursive
+	}
+	l := 20
+	if limit != nil {
+		l = *limit
+	}
+	o := 0
+	if offset != nil {
+		o = *offset
+	}
+
+	docs, total, err := orm_document.ListDocumentsByFolder(ctx, folderID, rec, l, o)
 	if err != nil {
 		return nil, err
 	}
-
-	items := make([]*types.Document, 0, len(docs))
+	items := make([]*types.Document, len(docs))
 	for i := range docs {
 		var td types.Document
 		if err := utils.CopyObj(&docs[i], &td); err != nil {
 			return nil, fmt.Errorf("copy doc: %w", err)
 		}
-		items = append(items, &td)
+		items[i] = &td
 	}
 	return &types.DocumentList{Items: items, Total: int(total)}, nil
 }
 
-// GetDocumentNodeByNodeID — single tree node by doc_id + node_id.
-func (r *queryResolver) GetDocumentNodeByNodeID(ctx context.Context, docID string, nodeID int) (*types.TreeNode, error) {
-	node, err := document_service.GetDocumentNode(ctx, docID, nodeID)
+// GetDocumentNodeByNodeID returns a single node of a document's parsed tree.
+func (r *queryResolver) GetDocumentNodeByNodeID(ctx context.Context, docID uuid.UUID, nodeID int) (*types.TreeNode, error) {
+	node, err := document_service.GetDocumentNodeByDocumentID(ctx, docID, nodeID)
 	if err != nil {
 		return nil, err
 	}
@@ -120,8 +116,8 @@ func (r *queryResolver) GetDocumentNodeByNodeID(ctx context.Context, docID strin
 	return &tn, nil
 }
 
-// GetDocumentNodesByPages — TreeNodes covering the requested pages.
-func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID string, pages []int) ([]*types.TreeNode, error) {
+// GetDocumentNodesByPages returns all nodes overlapping the given pages.
+func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID uuid.UUID, pages []int) ([]*types.TreeNode, error) {
 	nodes, err := document_service.GetDocumentNodesByPages(ctx, docID, pages)
 	if err != nil {
 		return nil, err
@@ -137,17 +133,16 @@ func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID strin
 	return out, nil
 }
 
-// SearchDocuments — full-text search across documents.
-func (r *queryResolver) SearchDocuments(ctx context.Context, query string, docIds []string, doi *string, indication []string, study []string, literatureType []string, limit *int) ([]*types.SearchResult, error) {
+// SearchDocuments ranks documents by PG tsvector match against the query.
+func (r *queryResolver) SearchDocuments(ctx context.Context, query string, docIds []uuid.UUID, limit *int) ([]*types.SearchResult, error) {
 	l := 10
 	if limit != nil {
 		l = *limit
 	}
-	doi_str := ""
-	if doi != nil {
-		doi_str = *doi
-	}
-	results, err := document_service.SearchDocuments(ctx, query, docIds, doi_str, indication, study, literatureType, l)
+	// Metadata filters (doi/indication/study/literature_type) are not exposed
+	// in the GraphQL schema yet — pass zero values so the service signature
+	// stays ready for when they're re-added.
+	results, err := document_service.SearchDocuments(ctx, query, docIds, "", nil, nil, nil, l)
 	if err != nil {
 		return nil, err
 	}

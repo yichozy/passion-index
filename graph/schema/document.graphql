@@ -1,4 +1,4 @@
-# passion-index GraphQL schema — single domain (document) for MVP.
+# passion-index GraphQL schema — document domain.
 #
 # Conventions:
 #   - Field names + argument names: snake_case (matches JSON output)
@@ -15,16 +15,13 @@ enum DocStatus {
 }
 
 type Document {
-  id: ID!
+  id: UUID!
   filename: String!
+  folder_id: UUID!
+  folder: Folder
   status: DocStatus!
-  processing_step: String
   page_count: Int
   error: String
-  doi: String!
-  indication: [String!]!
-  study: [String!]!
-  literature_type: [String!]!
   created_at: Time!
   updated_at: Time!
   tree: TreeNode
@@ -60,21 +57,21 @@ type SearchMatch {
 }
 
 type SearchResult {
-  doc_id: ID!
+  doc_id: UUID!
   filename: String!
   score: Float!
   matches: [SearchMatch!]!
 }
 
 type Query {
-  GetDocumentByID(doc_id: ID!): Document
-  GetDocumentList(limit: Int!, offset: Int!): DocumentList!
-  GetDocumentNodeByNodeID(doc_id: ID!, node_id: Int!): TreeNode
-  GetDocumentNodesByPages(doc_id: ID!, pages: [Int!]!): [TreeNode!]!
-  SearchDocuments(query: String!, doc_ids: [ID!], doi: String, indication: [String!], study: [String!], literature_type: [String!], limit: Int = 10): [SearchResult!]!
+  GetDocument(id: UUID!): Document
+  GetDocumentListByFolder(folder_id: UUID!, recursive: Boolean = false, limit: Int = 20, offset: Int = 0): DocumentList!
+  GetDocumentNodeByNodeID(doc_id: UUID!, node_id: Int!): TreeNode
+  GetDocumentNodesByPages(doc_id: UUID!, pages: [Int!]!): [TreeNode!]!
+  SearchDocuments(query: String!, doc_ids: [UUID!], limit: Int = 10): [SearchResult!]!
 }
 
 type Mutation {
-  UploadDocument(file: Upload!, doi: String, indication: [String!], study: [String!], literature_type: [String!]): Document!
-  DeleteDocument(doc_id: ID!): Boolean!
+  UploadDocument(file: Upload!, folder_id: UUID!): Document!
+  DeleteDocument(doc_id: UUID!): Boolean!
 }

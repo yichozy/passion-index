@@ -15,6 +15,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
+	"github.com/google/uuid"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/yichozy/passion-index/graph/types"
@@ -49,19 +50,16 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Document struct {
-		CreatedAt      func(childComplexity int) int
-		Doi            func(childComplexity int) int
-		Error          func(childComplexity int) int
-		Filename       func(childComplexity int) int
-		ID             func(childComplexity int) int
-		Indication     func(childComplexity int) int
-		LiteratureType func(childComplexity int) int
-		PageCount      func(childComplexity int) int
-		ProcessingStep func(childComplexity int) int
-		Status         func(childComplexity int) int
-		Study          func(childComplexity int) int
-		Tree           func(childComplexity int) int
-		UpdatedAt      func(childComplexity int) int
+		CreatedAt func(childComplexity int) int
+		Error     func(childComplexity int) int
+		Filename  func(childComplexity int) int
+		Folder    func(childComplexity int) int
+		FolderID  func(childComplexity int) int
+		ID        func(childComplexity int) int
+		PageCount func(childComplexity int) int
+		Status    func(childComplexity int) int
+		Tree      func(childComplexity int) int
+		UpdatedAt func(childComplexity int) int
 	}
 
 	DocumentList struct {
@@ -76,17 +74,41 @@ type ComplexityRoot struct {
 		Page    func(childComplexity int) int
 	}
 
+	Folder struct {
+		CreatedAt func(childComplexity int) int
+		ID        func(childComplexity int) int
+		Name      func(childComplexity int) int
+		ParentID  func(childComplexity int) int
+		UpdatedAt func(childComplexity int) int
+	}
+
+	FolderNode struct {
+		CreatedAt     func(childComplexity int) int
+		DocumentCount func(childComplexity int) int
+		FolderCount   func(childComplexity int) int
+		Folders       func(childComplexity int) int
+		ID            func(childComplexity int) int
+		Name          func(childComplexity int) int
+		ParentID      func(childComplexity int) int
+		UpdatedAt     func(childComplexity int) int
+	}
+
 	Mutation struct {
-		DeleteDocument func(childComplexity int, docID string) int
-		UploadDocument func(childComplexity int, file graphql.Upload, doi *string, indication []string, study []string, literatureType []string) int
+		CreateFolder   func(childComplexity int, name string, parentID *uuid.UUID) int
+		DeleteDocument func(childComplexity int, docID uuid.UUID) int
+		DeleteFolder   func(childComplexity int, id uuid.UUID) int
+		RenameFolder   func(childComplexity int, id uuid.UUID, name string) int
+		UploadDocument func(childComplexity int, file graphql.Upload, folderID uuid.UUID) int
 	}
 
 	Query struct {
-		GetDocumentByID         func(childComplexity int, docID string) int
-		GetDocumentList         func(childComplexity int, limit int, offset int) int
-		GetDocumentNodeByNodeID func(childComplexity int, docID string, nodeID int) int
-		GetDocumentNodesByPages func(childComplexity int, docID string, pages []int) int
-		SearchDocuments         func(childComplexity int, query string, docIds []string, doi *string, indication []string, study []string, literatureType []string, limit *int) int
+		GetDocument             func(childComplexity int, id uuid.UUID) int
+		GetDocumentListByFolder func(childComplexity int, folderID uuid.UUID, recursive *bool, limit *int, offset *int) int
+		GetDocumentNodeByNodeID func(childComplexity int, docID uuid.UUID, nodeID int) int
+		GetDocumentNodesByPages func(childComplexity int, docID uuid.UUID, pages []int) int
+		GetFolder               func(childComplexity int, id uuid.UUID) int
+		GetFolderTree           func(childComplexity int, folderID *uuid.UUID, depth *int) int
+		SearchDocuments         func(childComplexity int, query string, docIds []uuid.UUID, limit *int) int
 	}
 
 	SearchMatch struct {
@@ -115,15 +137,20 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	UploadDocument(ctx context.Context, file graphql.Upload, doi *string, indication []string, study []string, literatureType []string) (*types.Document, error)
-	DeleteDocument(ctx context.Context, docID string) (bool, error)
+	UploadDocument(ctx context.Context, file graphql.Upload, folderID uuid.UUID) (*types.Document, error)
+	DeleteDocument(ctx context.Context, docID uuid.UUID) (bool, error)
+	CreateFolder(ctx context.Context, name string, parentID *uuid.UUID) (*types.Folder, error)
+	DeleteFolder(ctx context.Context, id uuid.UUID) (bool, error)
+	RenameFolder(ctx context.Context, id uuid.UUID, name string) (*types.Folder, error)
 }
 type QueryResolver interface {
-	GetDocumentByID(ctx context.Context, docID string) (*types.Document, error)
-	GetDocumentList(ctx context.Context, limit int, offset int) (*types.DocumentList, error)
-	GetDocumentNodeByNodeID(ctx context.Context, docID string, nodeID int) (*types.TreeNode, error)
-	GetDocumentNodesByPages(ctx context.Context, docID string, pages []int) ([]*types.TreeNode, error)
-	SearchDocuments(ctx context.Context, query string, docIds []string, doi *string, indication []string, study []string, literatureType []string, limit *int) ([]*types.SearchResult, error)
+	GetDocument(ctx context.Context, id uuid.UUID) (*types.Document, error)
+	GetDocumentListByFolder(ctx context.Context, folderID uuid.UUID, recursive *bool, limit *int, offset *int) (*types.DocumentList, error)
+	GetDocumentNodeByNodeID(ctx context.Context, docID uuid.UUID, nodeID int) (*types.TreeNode, error)
+	GetDocumentNodesByPages(ctx context.Context, docID uuid.UUID, pages []int) ([]*types.TreeNode, error)
+	SearchDocuments(ctx context.Context, query string, docIds []uuid.UUID, limit *int) ([]*types.SearchResult, error)
+	GetFolder(ctx context.Context, id uuid.UUID) (*types.Folder, error)
+	GetFolderTree(ctx context.Context, folderID *uuid.UUID, depth *int) ([]*types.FolderNode, error)
 }
 
 type executableSchema struct {
@@ -152,13 +179,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Document.CreatedAt(childComplexity), true
 
-	case "Document.doi":
-		if e.complexity.Document.Doi == nil {
-			break
-		}
-
-		return e.complexity.Document.Doi(childComplexity), true
-
 	case "Document.error":
 		if e.complexity.Document.Error == nil {
 			break
@@ -173,26 +193,26 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Document.Filename(childComplexity), true
 
+	case "Document.folder":
+		if e.complexity.Document.Folder == nil {
+			break
+		}
+
+		return e.complexity.Document.Folder(childComplexity), true
+
+	case "Document.folder_id":
+		if e.complexity.Document.FolderID == nil {
+			break
+		}
+
+		return e.complexity.Document.FolderID(childComplexity), true
+
 	case "Document.id":
 		if e.complexity.Document.ID == nil {
 			break
 		}
 
 		return e.complexity.Document.ID(childComplexity), true
-
-	case "Document.indication":
-		if e.complexity.Document.Indication == nil {
-			break
-		}
-
-		return e.complexity.Document.Indication(childComplexity), true
-
-	case "Document.literature_type":
-		if e.complexity.Document.LiteratureType == nil {
-			break
-		}
-
-		return e.complexity.Document.LiteratureType(childComplexity), true
 
 	case "Document.page_count":
 		if e.complexity.Document.PageCount == nil {
@@ -201,26 +221,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Document.PageCount(childComplexity), true
 
-	case "Document.processing_step":
-		if e.complexity.Document.ProcessingStep == nil {
-			break
-		}
-
-		return e.complexity.Document.ProcessingStep(childComplexity), true
-
 	case "Document.status":
 		if e.complexity.Document.Status == nil {
 			break
 		}
 
 		return e.complexity.Document.Status(childComplexity), true
-
-	case "Document.study":
-		if e.complexity.Document.Study == nil {
-			break
-		}
-
-		return e.complexity.Document.Study(childComplexity), true
 
 	case "Document.tree":
 		if e.complexity.Document.Tree == nil {
@@ -278,6 +284,109 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Figure.Page(childComplexity), true
 
+	case "Folder.created_at":
+		if e.complexity.Folder.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.Folder.CreatedAt(childComplexity), true
+
+	case "Folder.id":
+		if e.complexity.Folder.ID == nil {
+			break
+		}
+
+		return e.complexity.Folder.ID(childComplexity), true
+
+	case "Folder.name":
+		if e.complexity.Folder.Name == nil {
+			break
+		}
+
+		return e.complexity.Folder.Name(childComplexity), true
+
+	case "Folder.parent_id":
+		if e.complexity.Folder.ParentID == nil {
+			break
+		}
+
+		return e.complexity.Folder.ParentID(childComplexity), true
+
+	case "Folder.updated_at":
+		if e.complexity.Folder.UpdatedAt == nil {
+			break
+		}
+
+		return e.complexity.Folder.UpdatedAt(childComplexity), true
+
+	case "FolderNode.created_at":
+		if e.complexity.FolderNode.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.FolderNode.CreatedAt(childComplexity), true
+
+	case "FolderNode.document_count":
+		if e.complexity.FolderNode.DocumentCount == nil {
+			break
+		}
+
+		return e.complexity.FolderNode.DocumentCount(childComplexity), true
+
+	case "FolderNode.folder_count":
+		if e.complexity.FolderNode.FolderCount == nil {
+			break
+		}
+
+		return e.complexity.FolderNode.FolderCount(childComplexity), true
+
+	case "FolderNode.folders":
+		if e.complexity.FolderNode.Folders == nil {
+			break
+		}
+
+		return e.complexity.FolderNode.Folders(childComplexity), true
+
+	case "FolderNode.id":
+		if e.complexity.FolderNode.ID == nil {
+			break
+		}
+
+		return e.complexity.FolderNode.ID(childComplexity), true
+
+	case "FolderNode.name":
+		if e.complexity.FolderNode.Name == nil {
+			break
+		}
+
+		return e.complexity.FolderNode.Name(childComplexity), true
+
+	case "FolderNode.parent_id":
+		if e.complexity.FolderNode.ParentID == nil {
+			break
+		}
+
+		return e.complexity.FolderNode.ParentID(childComplexity), true
+
+	case "FolderNode.updated_at":
+		if e.complexity.FolderNode.UpdatedAt == nil {
+			break
+		}
+
+		return e.complexity.FolderNode.UpdatedAt(childComplexity), true
+
+	case "Mutation.CreateFolder":
+		if e.complexity.Mutation.CreateFolder == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_CreateFolder_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateFolder(childComplexity, args["name"].(string), args["parent_id"].(*uuid.UUID)), true
+
 	case "Mutation.DeleteDocument":
 		if e.complexity.Mutation.DeleteDocument == nil {
 			break
@@ -288,7 +397,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.DeleteDocument(childComplexity, args["doc_id"].(string)), true
+		return e.complexity.Mutation.DeleteDocument(childComplexity, args["doc_id"].(uuid.UUID)), true
+
+	case "Mutation.DeleteFolder":
+		if e.complexity.Mutation.DeleteFolder == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_DeleteFolder_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteFolder(childComplexity, args["id"].(uuid.UUID)), true
+
+	case "Mutation.RenameFolder":
+		if e.complexity.Mutation.RenameFolder == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_RenameFolder_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.RenameFolder(childComplexity, args["id"].(uuid.UUID), args["name"].(string)), true
 
 	case "Mutation.UploadDocument":
 		if e.complexity.Mutation.UploadDocument == nil {
@@ -300,31 +433,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UploadDocument(childComplexity, args["file"].(graphql.Upload), args["doi"].(*string), args["indication"].([]string), args["study"].([]string), args["literature_type"].([]string)), true
+		return e.complexity.Mutation.UploadDocument(childComplexity, args["file"].(graphql.Upload), args["folder_id"].(uuid.UUID)), true
 
-	case "Query.GetDocumentByID":
-		if e.complexity.Query.GetDocumentByID == nil {
+	case "Query.GetDocument":
+		if e.complexity.Query.GetDocument == nil {
 			break
 		}
 
-		args, err := ec.field_Query_GetDocumentByID_args(ctx, rawArgs)
+		args, err := ec.field_Query_GetDocument_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Query.GetDocumentByID(childComplexity, args["doc_id"].(string)), true
+		return e.complexity.Query.GetDocument(childComplexity, args["id"].(uuid.UUID)), true
 
-	case "Query.GetDocumentList":
-		if e.complexity.Query.GetDocumentList == nil {
+	case "Query.GetDocumentListByFolder":
+		if e.complexity.Query.GetDocumentListByFolder == nil {
 			break
 		}
 
-		args, err := ec.field_Query_GetDocumentList_args(ctx, rawArgs)
+		args, err := ec.field_Query_GetDocumentListByFolder_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Query.GetDocumentList(childComplexity, args["limit"].(int), args["offset"].(int)), true
+		return e.complexity.Query.GetDocumentListByFolder(childComplexity, args["folder_id"].(uuid.UUID), args["recursive"].(*bool), args["limit"].(*int), args["offset"].(*int)), true
 
 	case "Query.GetDocumentNodeByNodeID":
 		if e.complexity.Query.GetDocumentNodeByNodeID == nil {
@@ -336,7 +469,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Query.GetDocumentNodeByNodeID(childComplexity, args["doc_id"].(string), args["node_id"].(int)), true
+		return e.complexity.Query.GetDocumentNodeByNodeID(childComplexity, args["doc_id"].(uuid.UUID), args["node_id"].(int)), true
 
 	case "Query.GetDocumentNodesByPages":
 		if e.complexity.Query.GetDocumentNodesByPages == nil {
@@ -348,7 +481,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Query.GetDocumentNodesByPages(childComplexity, args["doc_id"].(string), args["pages"].([]int)), true
+		return e.complexity.Query.GetDocumentNodesByPages(childComplexity, args["doc_id"].(uuid.UUID), args["pages"].([]int)), true
+
+	case "Query.GetFolder":
+		if e.complexity.Query.GetFolder == nil {
+			break
+		}
+
+		args, err := ec.field_Query_GetFolder_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetFolder(childComplexity, args["id"].(uuid.UUID)), true
+
+	case "Query.GetFolderTree":
+		if e.complexity.Query.GetFolderTree == nil {
+			break
+		}
+
+		args, err := ec.field_Query_GetFolderTree_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.GetFolderTree(childComplexity, args["folder_id"].(*uuid.UUID), args["depth"].(*int)), true
 
 	case "Query.SearchDocuments":
 		if e.complexity.Query.SearchDocuments == nil {
@@ -360,7 +517,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Query.SearchDocuments(childComplexity, args["query"].(string), args["doc_ids"].([]string), args["doi"].(*string), args["indication"].([]string), args["study"].([]string), args["literature_type"].([]string), args["limit"].(*int)), true
+		return e.complexity.Query.SearchDocuments(childComplexity, args["query"].(string), args["doc_ids"].([]uuid.UUID), args["limit"].(*int)), true
 
 	case "SearchMatch.node_id":
 		if e.complexity.SearchMatch.NodeID == nil {
@@ -570,7 +727,7 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 	return introspection.WrapTypeFromDef(ec.Schema(), ec.Schema().Types[name]), nil
 }
 
-//go:embed "schema/document.graphql" "schema/scalar.graphql"
+//go:embed "schema/document.graphql" "schema/folder.graphql" "schema/scalar.graphql"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -583,6 +740,7 @@ func sourceData(filename string) string {
 
 var sources = []*ast.Source{
 	{Name: "schema/document.graphql", Input: sourceData("schema/document.graphql"), BuiltIn: false},
+	{Name: "schema/folder.graphql", Input: sourceData("schema/folder.graphql"), BuiltIn: false},
 	{Name: "schema/scalar.graphql", Input: sourceData("schema/scalar.graphql"), BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -590,6 +748,57 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
+
+func (ec *executionContext) field_Mutation_CreateFolder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_CreateFolder_argsName(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg0
+	arg1, err := ec.field_Mutation_CreateFolder_argsParentID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["parent_id"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_CreateFolder_argsName(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	if _, ok := rawArgs["name"]; !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+	if tmp, ok := rawArgs["name"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_CreateFolder_argsParentID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*uuid.UUID, error) {
+	if _, ok := rawArgs["parent_id"]; !ok {
+		var zeroVal *uuid.UUID
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("parent_id"))
+	if tmp, ok := rawArgs["parent_id"]; ok {
+		return ec.unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
+	}
+
+	var zeroVal *uuid.UUID
+	return zeroVal, nil
+}
 
 func (ec *executionContext) field_Mutation_DeleteDocument_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
@@ -604,15 +813,94 @@ func (ec *executionContext) field_Mutation_DeleteDocument_args(ctx context.Conte
 func (ec *executionContext) field_Mutation_DeleteDocument_argsDocID(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (string, error) {
+) (uuid.UUID, error) {
 	if _, ok := rawArgs["doc_id"]; !ok {
-		var zeroVal string
+		var zeroVal uuid.UUID
 		return zeroVal, nil
 	}
 
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doc_id"))
 	if tmp, ok := rawArgs["doc_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
+		return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
+	}
+
+	var zeroVal uuid.UUID
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_DeleteFolder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_DeleteFolder_argsID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_DeleteFolder_argsID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (uuid.UUID, error) {
+	if _, ok := rawArgs["id"]; !ok {
+		var zeroVal uuid.UUID
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+	if tmp, ok := rawArgs["id"]; ok {
+		return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
+	}
+
+	var zeroVal uuid.UUID
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_RenameFolder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_RenameFolder_argsID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := ec.field_Mutation_RenameFolder_argsName(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_RenameFolder_argsID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (uuid.UUID, error) {
+	if _, ok := rawArgs["id"]; !ok {
+		var zeroVal uuid.UUID
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+	if tmp, ok := rawArgs["id"]; ok {
+		return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
+	}
+
+	var zeroVal uuid.UUID
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_RenameFolder_argsName(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	if _, ok := rawArgs["name"]; !ok {
+		var zeroVal string
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+	if tmp, ok := rawArgs["name"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
 	}
 
 	var zeroVal string
@@ -627,26 +915,11 @@ func (ec *executionContext) field_Mutation_UploadDocument_args(ctx context.Conte
 		return nil, err
 	}
 	args["file"] = arg0
-	arg1, err := ec.field_Mutation_UploadDocument_argsDoi(ctx, rawArgs)
+	arg1, err := ec.field_Mutation_UploadDocument_argsFolderID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["doi"] = arg1
-	arg2, err := ec.field_Mutation_UploadDocument_argsIndication(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["indication"] = arg2
-	arg3, err := ec.field_Mutation_UploadDocument_argsStudy(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["study"] = arg3
-	arg4, err := ec.field_Mutation_UploadDocument_argsLiteratureType(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["literature_type"] = arg4
+	args["folder_id"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_UploadDocument_argsFile(
@@ -667,154 +940,118 @@ func (ec *executionContext) field_Mutation_UploadDocument_argsFile(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_UploadDocument_argsDoi(
+func (ec *executionContext) field_Mutation_UploadDocument_argsFolderID(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (*string, error) {
-	if _, ok := rawArgs["doi"]; !ok {
-		var zeroVal *string
+) (uuid.UUID, error) {
+	if _, ok := rawArgs["folder_id"]; !ok {
+		var zeroVal uuid.UUID
 		return zeroVal, nil
 	}
 
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doi"))
-	if tmp, ok := rawArgs["doi"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("folder_id"))
+	if tmp, ok := rawArgs["folder_id"]; ok {
+		return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
 	}
 
-	var zeroVal *string
+	var zeroVal uuid.UUID
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_UploadDocument_argsIndication(
-	ctx context.Context,
-	rawArgs map[string]any,
-) ([]string, error) {
-	if _, ok := rawArgs["indication"]; !ok {
-		var zeroVal []string
-		return zeroVal, nil
-	}
-
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("indication"))
-	if tmp, ok := rawArgs["indication"]; ok {
-		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
-	}
-
-	var zeroVal []string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_UploadDocument_argsStudy(
-	ctx context.Context,
-	rawArgs map[string]any,
-) ([]string, error) {
-	if _, ok := rawArgs["study"]; !ok {
-		var zeroVal []string
-		return zeroVal, nil
-	}
-
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("study"))
-	if tmp, ok := rawArgs["study"]; ok {
-		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
-	}
-
-	var zeroVal []string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Mutation_UploadDocument_argsLiteratureType(
-	ctx context.Context,
-	rawArgs map[string]any,
-) ([]string, error) {
-	if _, ok := rawArgs["literature_type"]; !ok {
-		var zeroVal []string
-		return zeroVal, nil
-	}
-
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("literature_type"))
-	if tmp, ok := rawArgs["literature_type"]; ok {
-		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
-	}
-
-	var zeroVal []string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_GetDocumentByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Query_GetDocumentListByFolder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Query_GetDocumentByID_argsDocID(ctx, rawArgs)
+	arg0, err := ec.field_Query_GetDocumentListByFolder_argsFolderID(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["doc_id"] = arg0
+	args["folder_id"] = arg0
+	arg1, err := ec.field_Query_GetDocumentListByFolder_argsRecursive(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["recursive"] = arg1
+	arg2, err := ec.field_Query_GetDocumentListByFolder_argsLimit(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg2
+	arg3, err := ec.field_Query_GetDocumentListByFolder_argsOffset(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["offset"] = arg3
 	return args, nil
 }
-func (ec *executionContext) field_Query_GetDocumentByID_argsDocID(
+func (ec *executionContext) field_Query_GetDocumentListByFolder_argsFolderID(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (string, error) {
-	if _, ok := rawArgs["doc_id"]; !ok {
-		var zeroVal string
+) (uuid.UUID, error) {
+	if _, ok := rawArgs["folder_id"]; !ok {
+		var zeroVal uuid.UUID
 		return zeroVal, nil
 	}
 
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doc_id"))
-	if tmp, ok := rawArgs["doc_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("folder_id"))
+	if tmp, ok := rawArgs["folder_id"]; ok {
+		return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
 	}
 
-	var zeroVal string
+	var zeroVal uuid.UUID
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_GetDocumentList_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := ec.field_Query_GetDocumentList_argsLimit(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["limit"] = arg0
-	arg1, err := ec.field_Query_GetDocumentList_argsOffset(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["offset"] = arg1
-	return args, nil
-}
-func (ec *executionContext) field_Query_GetDocumentList_argsLimit(
+func (ec *executionContext) field_Query_GetDocumentListByFolder_argsRecursive(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (int, error) {
+) (*bool, error) {
+	if _, ok := rawArgs["recursive"]; !ok {
+		var zeroVal *bool
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("recursive"))
+	if tmp, ok := rawArgs["recursive"]; ok {
+		return ec.unmarshalOBoolean2ᚖbool(ctx, tmp)
+	}
+
+	var zeroVal *bool
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_GetDocumentListByFolder_argsLimit(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*int, error) {
 	if _, ok := rawArgs["limit"]; !ok {
-		var zeroVal int
+		var zeroVal *int
 		return zeroVal, nil
 	}
 
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
 	if tmp, ok := rawArgs["limit"]; ok {
-		return ec.unmarshalNInt2int(ctx, tmp)
+		return ec.unmarshalOInt2ᚖint(ctx, tmp)
 	}
 
-	var zeroVal int
+	var zeroVal *int
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Query_GetDocumentList_argsOffset(
+func (ec *executionContext) field_Query_GetDocumentListByFolder_argsOffset(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (int, error) {
+) (*int, error) {
 	if _, ok := rawArgs["offset"]; !ok {
-		var zeroVal int
+		var zeroVal *int
 		return zeroVal, nil
 	}
 
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("offset"))
 	if tmp, ok := rawArgs["offset"]; ok {
-		return ec.unmarshalNInt2int(ctx, tmp)
+		return ec.unmarshalOInt2ᚖint(ctx, tmp)
 	}
 
-	var zeroVal int
+	var zeroVal *int
 	return zeroVal, nil
 }
 
@@ -836,18 +1073,18 @@ func (ec *executionContext) field_Query_GetDocumentNodeByNodeID_args(ctx context
 func (ec *executionContext) field_Query_GetDocumentNodeByNodeID_argsDocID(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (string, error) {
+) (uuid.UUID, error) {
 	if _, ok := rawArgs["doc_id"]; !ok {
-		var zeroVal string
+		var zeroVal uuid.UUID
 		return zeroVal, nil
 	}
 
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doc_id"))
 	if tmp, ok := rawArgs["doc_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
+		return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
 	}
 
-	var zeroVal string
+	var zeroVal uuid.UUID
 	return zeroVal, nil
 }
 
@@ -887,18 +1124,18 @@ func (ec *executionContext) field_Query_GetDocumentNodesByPages_args(ctx context
 func (ec *executionContext) field_Query_GetDocumentNodesByPages_argsDocID(
 	ctx context.Context,
 	rawArgs map[string]any,
-) (string, error) {
+) (uuid.UUID, error) {
 	if _, ok := rawArgs["doc_id"]; !ok {
-		var zeroVal string
+		var zeroVal uuid.UUID
 		return zeroVal, nil
 	}
 
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doc_id"))
 	if tmp, ok := rawArgs["doc_id"]; ok {
-		return ec.unmarshalNID2string(ctx, tmp)
+		return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
 	}
 
-	var zeroVal string
+	var zeroVal uuid.UUID
 	return zeroVal, nil
 }
 
@@ -920,6 +1157,113 @@ func (ec *executionContext) field_Query_GetDocumentNodesByPages_argsPages(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Query_GetDocument_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_GetDocument_argsID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Query_GetDocument_argsID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (uuid.UUID, error) {
+	if _, ok := rawArgs["id"]; !ok {
+		var zeroVal uuid.UUID
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+	if tmp, ok := rawArgs["id"]; ok {
+		return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
+	}
+
+	var zeroVal uuid.UUID
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_GetFolderTree_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_GetFolderTree_argsFolderID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["folder_id"] = arg0
+	arg1, err := ec.field_Query_GetFolderTree_argsDepth(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["depth"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Query_GetFolderTree_argsFolderID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*uuid.UUID, error) {
+	if _, ok := rawArgs["folder_id"]; !ok {
+		var zeroVal *uuid.UUID
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("folder_id"))
+	if tmp, ok := rawArgs["folder_id"]; ok {
+		return ec.unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
+	}
+
+	var zeroVal *uuid.UUID
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_GetFolderTree_argsDepth(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*int, error) {
+	if _, ok := rawArgs["depth"]; !ok {
+		var zeroVal *int
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("depth"))
+	if tmp, ok := rawArgs["depth"]; ok {
+		return ec.unmarshalOInt2ᚖint(ctx, tmp)
+	}
+
+	var zeroVal *int
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Query_GetFolder_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Query_GetFolder_argsID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Query_GetFolder_argsID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (uuid.UUID, error) {
+	if _, ok := rawArgs["id"]; !ok {
+		var zeroVal uuid.UUID
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+	if tmp, ok := rawArgs["id"]; ok {
+		return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
+	}
+
+	var zeroVal uuid.UUID
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Query_SearchDocuments_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -933,31 +1277,11 @@ func (ec *executionContext) field_Query_SearchDocuments_args(ctx context.Context
 		return nil, err
 	}
 	args["doc_ids"] = arg1
-	arg2, err := ec.field_Query_SearchDocuments_argsDoi(ctx, rawArgs)
+	arg2, err := ec.field_Query_SearchDocuments_argsLimit(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["doi"] = arg2
-	arg3, err := ec.field_Query_SearchDocuments_argsIndication(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["indication"] = arg3
-	arg4, err := ec.field_Query_SearchDocuments_argsStudy(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["study"] = arg4
-	arg5, err := ec.field_Query_SearchDocuments_argsLiteratureType(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["literature_type"] = arg5
-	arg6, err := ec.field_Query_SearchDocuments_argsLimit(ctx, rawArgs)
-	if err != nil {
-		return nil, err
-	}
-	args["limit"] = arg6
+	args["limit"] = arg2
 	return args, nil
 }
 func (ec *executionContext) field_Query_SearchDocuments_argsQuery(
@@ -981,90 +1305,18 @@ func (ec *executionContext) field_Query_SearchDocuments_argsQuery(
 func (ec *executionContext) field_Query_SearchDocuments_argsDocIds(
 	ctx context.Context,
 	rawArgs map[string]any,
-) ([]string, error) {
+) ([]uuid.UUID, error) {
 	if _, ok := rawArgs["doc_ids"]; !ok {
-		var zeroVal []string
+		var zeroVal []uuid.UUID
 		return zeroVal, nil
 	}
 
 	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doc_ids"))
 	if tmp, ok := rawArgs["doc_ids"]; ok {
-		return ec.unmarshalOID2ᚕstringᚄ(ctx, tmp)
+		return ec.unmarshalOUUID2ᚕgithubᚗcomᚋgoogleᚋuuidᚐUUIDᚄ(ctx, tmp)
 	}
 
-	var zeroVal []string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_SearchDocuments_argsDoi(
-	ctx context.Context,
-	rawArgs map[string]any,
-) (*string, error) {
-	if _, ok := rawArgs["doi"]; !ok {
-		var zeroVal *string
-		return zeroVal, nil
-	}
-
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doi"))
-	if tmp, ok := rawArgs["doi"]; ok {
-		return ec.unmarshalOString2ᚖstring(ctx, tmp)
-	}
-
-	var zeroVal *string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_SearchDocuments_argsIndication(
-	ctx context.Context,
-	rawArgs map[string]any,
-) ([]string, error) {
-	if _, ok := rawArgs["indication"]; !ok {
-		var zeroVal []string
-		return zeroVal, nil
-	}
-
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("indication"))
-	if tmp, ok := rawArgs["indication"]; ok {
-		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
-	}
-
-	var zeroVal []string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_SearchDocuments_argsStudy(
-	ctx context.Context,
-	rawArgs map[string]any,
-) ([]string, error) {
-	if _, ok := rawArgs["study"]; !ok {
-		var zeroVal []string
-		return zeroVal, nil
-	}
-
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("study"))
-	if tmp, ok := rawArgs["study"]; ok {
-		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
-	}
-
-	var zeroVal []string
-	return zeroVal, nil
-}
-
-func (ec *executionContext) field_Query_SearchDocuments_argsLiteratureType(
-	ctx context.Context,
-	rawArgs map[string]any,
-) ([]string, error) {
-	if _, ok := rawArgs["literature_type"]; !ok {
-		var zeroVal []string
-		return zeroVal, nil
-	}
-
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("literature_type"))
-	if tmp, ok := rawArgs["literature_type"]; ok {
-		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
-	}
-
-	var zeroVal []string
+	var zeroVal []uuid.UUID
 	return zeroVal, nil
 }
 
@@ -1260,9 +1512,9 @@ func (ec *executionContext) _Document_id(ctx context.Context, field graphql.Coll
 		}
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(uuid.UUID)
 	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
+	return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Document_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1272,7 +1524,7 @@ func (ec *executionContext) fieldContext_Document_id(_ context.Context, field gr
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
+			return nil, errors.New("field of type UUID does not have child fields")
 		},
 	}
 	return fc, nil
@@ -1322,6 +1574,103 @@ func (ec *executionContext) fieldContext_Document_filename(_ context.Context, fi
 	return fc, nil
 }
 
+func (ec *executionContext) _Document_folder_id(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Document_folder_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.FolderID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(uuid.UUID)
+	fc.Result = res
+	return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Document_folder_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Document",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type UUID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Document_folder(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Document_folder(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Folder, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*types.Folder)
+	fc.Result = res
+	return ec.marshalOFolder2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolder(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Document_folder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Document",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Folder_id(ctx, field)
+			case "name":
+				return ec.fieldContext_Folder_name(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_Folder_parent_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_Folder_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_Folder_updated_at(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Folder", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Document_status(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Document_status(ctx, field)
 	if err != nil {
@@ -1361,47 +1710,6 @@ func (ec *executionContext) fieldContext_Document_status(_ context.Context, fiel
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type DocStatus does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Document_processing_step(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Document_processing_step(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ProcessingStep, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*string)
-	fc.Result = res
-	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Document_processing_step(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Document",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -1477,182 +1785,6 @@ func (ec *executionContext) _Document_error(ctx context.Context, field graphql.C
 }
 
 func (ec *executionContext) fieldContext_Document_error(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Document",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Document_doi(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Document_doi(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Doi, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Document_doi(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Document",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Document_indication(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Document_indication(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Indication, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]string)
-	fc.Result = res
-	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Document_indication(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Document",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Document_study(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Document_study(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Study, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]string)
-	fc.Result = res
-	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Document_study(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Document",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Document_literature_type(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Document_literature_type(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.LiteratureType, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]string)
-	fc.Result = res
-	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Document_literature_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Document",
 		Field:      field,
@@ -1857,22 +1989,16 @@ func (ec *executionContext) fieldContext_DocumentList_items(_ context.Context, f
 				return ec.fieldContext_Document_id(ctx, field)
 			case "filename":
 				return ec.fieldContext_Document_filename(ctx, field)
+			case "folder_id":
+				return ec.fieldContext_Document_folder_id(ctx, field)
+			case "folder":
+				return ec.fieldContext_Document_folder(ctx, field)
 			case "status":
 				return ec.fieldContext_Document_status(ctx, field)
-			case "processing_step":
-				return ec.fieldContext_Document_processing_step(ctx, field)
 			case "page_count":
 				return ec.fieldContext_Document_page_count(ctx, field)
 			case "error":
 				return ec.fieldContext_Document_error(ctx, field)
-			case "doi":
-				return ec.fieldContext_Document_doi(ctx, field)
-			case "indication":
-				return ec.fieldContext_Document_indication(ctx, field)
-			case "study":
-				return ec.fieldContext_Document_study(ctx, field)
-			case "literature_type":
-				return ec.fieldContext_Document_literature_type(ctx, field)
 			case "created_at":
 				return ec.fieldContext_Document_created_at(ctx, field)
 			case "updated_at":
@@ -2100,6 +2226,590 @@ func (ec *executionContext) fieldContext_Figure_caption(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _Folder_id(ctx context.Context, field graphql.CollectedField, obj *types.Folder) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Folder_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(uuid.UUID)
+	fc.Result = res
+	return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Folder_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Folder",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type UUID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Folder_name(ctx context.Context, field graphql.CollectedField, obj *types.Folder) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Folder_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Name, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Folder_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Folder",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Folder_parent_id(ctx context.Context, field graphql.CollectedField, obj *types.Folder) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Folder_parent_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ParentID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*uuid.UUID)
+	fc.Result = res
+	return ec.marshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Folder_parent_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Folder",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type UUID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Folder_created_at(ctx context.Context, field graphql.CollectedField, obj *types.Folder) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Folder_created_at(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CreatedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Folder_created_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Folder",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Folder_updated_at(ctx context.Context, field graphql.CollectedField, obj *types.Folder) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Folder_updated_at(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.UpdatedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Folder_updated_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Folder",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FolderNode_id(ctx context.Context, field graphql.CollectedField, obj *types.FolderNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FolderNode_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(uuid.UUID)
+	fc.Result = res
+	return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FolderNode_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FolderNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type UUID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FolderNode_name(ctx context.Context, field graphql.CollectedField, obj *types.FolderNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FolderNode_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Name, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FolderNode_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FolderNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FolderNode_parent_id(ctx context.Context, field graphql.CollectedField, obj *types.FolderNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FolderNode_parent_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ParentID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*uuid.UUID)
+	fc.Result = res
+	return ec.marshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FolderNode_parent_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FolderNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type UUID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FolderNode_document_count(ctx context.Context, field graphql.CollectedField, obj *types.FolderNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FolderNode_document_count(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.DocumentCount, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FolderNode_document_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FolderNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FolderNode_folder_count(ctx context.Context, field graphql.CollectedField, obj *types.FolderNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FolderNode_folder_count(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.FolderCount, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FolderNode_folder_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FolderNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FolderNode_folders(ctx context.Context, field graphql.CollectedField, obj *types.FolderNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FolderNode_folders(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Folders, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*types.FolderNode)
+	fc.Result = res
+	return ec.marshalNFolderNode2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolderNodeᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FolderNode_folders(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FolderNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_FolderNode_id(ctx, field)
+			case "name":
+				return ec.fieldContext_FolderNode_name(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_FolderNode_parent_id(ctx, field)
+			case "document_count":
+				return ec.fieldContext_FolderNode_document_count(ctx, field)
+			case "folder_count":
+				return ec.fieldContext_FolderNode_folder_count(ctx, field)
+			case "folders":
+				return ec.fieldContext_FolderNode_folders(ctx, field)
+			case "created_at":
+				return ec.fieldContext_FolderNode_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_FolderNode_updated_at(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type FolderNode", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FolderNode_created_at(ctx context.Context, field graphql.CollectedField, obj *types.FolderNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FolderNode_created_at(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CreatedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FolderNode_created_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FolderNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FolderNode_updated_at(ctx context.Context, field graphql.CollectedField, obj *types.FolderNode) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FolderNode_updated_at(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.UpdatedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FolderNode_updated_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FolderNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_UploadDocument(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_UploadDocument(ctx, field)
 	if err != nil {
@@ -2114,7 +2824,7 @@ func (ec *executionContext) _Mutation_UploadDocument(ctx context.Context, field 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UploadDocument(rctx, fc.Args["file"].(graphql.Upload), fc.Args["doi"].(*string), fc.Args["indication"].([]string), fc.Args["study"].([]string), fc.Args["literature_type"].([]string))
+		return ec.resolvers.Mutation().UploadDocument(rctx, fc.Args["file"].(graphql.Upload), fc.Args["folder_id"].(uuid.UUID))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2143,22 +2853,16 @@ func (ec *executionContext) fieldContext_Mutation_UploadDocument(ctx context.Con
 				return ec.fieldContext_Document_id(ctx, field)
 			case "filename":
 				return ec.fieldContext_Document_filename(ctx, field)
+			case "folder_id":
+				return ec.fieldContext_Document_folder_id(ctx, field)
+			case "folder":
+				return ec.fieldContext_Document_folder(ctx, field)
 			case "status":
 				return ec.fieldContext_Document_status(ctx, field)
-			case "processing_step":
-				return ec.fieldContext_Document_processing_step(ctx, field)
 			case "page_count":
 				return ec.fieldContext_Document_page_count(ctx, field)
 			case "error":
 				return ec.fieldContext_Document_error(ctx, field)
-			case "doi":
-				return ec.fieldContext_Document_doi(ctx, field)
-			case "indication":
-				return ec.fieldContext_Document_indication(ctx, field)
-			case "study":
-				return ec.fieldContext_Document_study(ctx, field)
-			case "literature_type":
-				return ec.fieldContext_Document_literature_type(ctx, field)
 			case "created_at":
 				return ec.fieldContext_Document_created_at(ctx, field)
 			case "updated_at":
@@ -2197,7 +2901,7 @@ func (ec *executionContext) _Mutation_DeleteDocument(ctx context.Context, field 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DeleteDocument(rctx, fc.Args["doc_id"].(string))
+		return ec.resolvers.Mutation().DeleteDocument(rctx, fc.Args["doc_id"].(uuid.UUID))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2238,8 +2942,8 @@ func (ec *executionContext) fieldContext_Mutation_DeleteDocument(ctx context.Con
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_GetDocumentByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_GetDocumentByID(ctx, field)
+func (ec *executionContext) _Mutation_CreateFolder(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_CreateFolder(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -2252,7 +2956,196 @@ func (ec *executionContext) _Query_GetDocumentByID(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetDocumentByID(rctx, fc.Args["doc_id"].(string))
+		return ec.resolvers.Mutation().CreateFolder(rctx, fc.Args["name"].(string), fc.Args["parent_id"].(*uuid.UUID))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*types.Folder)
+	fc.Result = res
+	return ec.marshalNFolder2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolder(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_CreateFolder(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Folder_id(ctx, field)
+			case "name":
+				return ec.fieldContext_Folder_name(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_Folder_parent_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_Folder_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_Folder_updated_at(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Folder", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_CreateFolder_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_DeleteFolder(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_DeleteFolder(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteFolder(rctx, fc.Args["id"].(uuid.UUID))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_DeleteFolder(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_DeleteFolder_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_RenameFolder(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_RenameFolder(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().RenameFolder(rctx, fc.Args["id"].(uuid.UUID), fc.Args["name"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*types.Folder)
+	fc.Result = res
+	return ec.marshalNFolder2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolder(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_RenameFolder(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Folder_id(ctx, field)
+			case "name":
+				return ec.fieldContext_Folder_name(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_Folder_parent_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_Folder_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_Folder_updated_at(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Folder", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_RenameFolder_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_GetDocument(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_GetDocument(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetDocument(rctx, fc.Args["id"].(uuid.UUID))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2266,7 +3159,7 @@ func (ec *executionContext) _Query_GetDocumentByID(ctx context.Context, field gr
 	return ec.marshalODocument2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐDocument(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_GetDocumentByID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_GetDocument(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -2278,22 +3171,16 @@ func (ec *executionContext) fieldContext_Query_GetDocumentByID(ctx context.Conte
 				return ec.fieldContext_Document_id(ctx, field)
 			case "filename":
 				return ec.fieldContext_Document_filename(ctx, field)
+			case "folder_id":
+				return ec.fieldContext_Document_folder_id(ctx, field)
+			case "folder":
+				return ec.fieldContext_Document_folder(ctx, field)
 			case "status":
 				return ec.fieldContext_Document_status(ctx, field)
-			case "processing_step":
-				return ec.fieldContext_Document_processing_step(ctx, field)
 			case "page_count":
 				return ec.fieldContext_Document_page_count(ctx, field)
 			case "error":
 				return ec.fieldContext_Document_error(ctx, field)
-			case "doi":
-				return ec.fieldContext_Document_doi(ctx, field)
-			case "indication":
-				return ec.fieldContext_Document_indication(ctx, field)
-			case "study":
-				return ec.fieldContext_Document_study(ctx, field)
-			case "literature_type":
-				return ec.fieldContext_Document_literature_type(ctx, field)
 			case "created_at":
 				return ec.fieldContext_Document_created_at(ctx, field)
 			case "updated_at":
@@ -2311,15 +3198,15 @@ func (ec *executionContext) fieldContext_Query_GetDocumentByID(ctx context.Conte
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_GetDocumentByID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_GetDocument_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_GetDocumentList(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_GetDocumentList(ctx, field)
+func (ec *executionContext) _Query_GetDocumentListByFolder(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_GetDocumentListByFolder(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -2332,7 +3219,7 @@ func (ec *executionContext) _Query_GetDocumentList(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetDocumentList(rctx, fc.Args["limit"].(int), fc.Args["offset"].(int))
+		return ec.resolvers.Query().GetDocumentListByFolder(rctx, fc.Args["folder_id"].(uuid.UUID), fc.Args["recursive"].(*bool), fc.Args["limit"].(*int), fc.Args["offset"].(*int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2349,7 +3236,7 @@ func (ec *executionContext) _Query_GetDocumentList(ctx context.Context, field gr
 	return ec.marshalNDocumentList2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐDocumentList(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_GetDocumentList(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_GetDocumentListByFolder(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -2372,7 +3259,7 @@ func (ec *executionContext) fieldContext_Query_GetDocumentList(ctx context.Conte
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_GetDocumentList_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_GetDocumentListByFolder_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2393,7 +3280,7 @@ func (ec *executionContext) _Query_GetDocumentNodeByNodeID(ctx context.Context, 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetDocumentNodeByNodeID(rctx, fc.Args["doc_id"].(string), fc.Args["node_id"].(int))
+		return ec.resolvers.Query().GetDocumentNodeByNodeID(rctx, fc.Args["doc_id"].(uuid.UUID), fc.Args["node_id"].(int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2465,7 +3352,7 @@ func (ec *executionContext) _Query_GetDocumentNodesByPages(ctx context.Context, 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetDocumentNodesByPages(rctx, fc.Args["doc_id"].(string), fc.Args["pages"].([]int))
+		return ec.resolvers.Query().GetDocumentNodesByPages(rctx, fc.Args["doc_id"].(uuid.UUID), fc.Args["pages"].([]int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2540,7 +3427,7 @@ func (ec *executionContext) _Query_SearchDocuments(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().SearchDocuments(rctx, fc.Args["query"].(string), fc.Args["doc_ids"].([]string), fc.Args["doi"].(*string), fc.Args["indication"].([]string), fc.Args["study"].([]string), fc.Args["literature_type"].([]string), fc.Args["limit"].(*int))
+		return ec.resolvers.Query().SearchDocuments(rctx, fc.Args["query"].(string), fc.Args["doc_ids"].([]uuid.UUID), fc.Args["limit"].(*int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2585,6 +3472,143 @@ func (ec *executionContext) fieldContext_Query_SearchDocuments(ctx context.Conte
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_SearchDocuments_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_GetFolder(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_GetFolder(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetFolder(rctx, fc.Args["id"].(uuid.UUID))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*types.Folder)
+	fc.Result = res
+	return ec.marshalOFolder2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolder(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_GetFolder(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Folder_id(ctx, field)
+			case "name":
+				return ec.fieldContext_Folder_name(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_Folder_parent_id(ctx, field)
+			case "created_at":
+				return ec.fieldContext_Folder_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_Folder_updated_at(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Folder", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_GetFolder_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_GetFolderTree(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_GetFolderTree(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetFolderTree(rctx, fc.Args["folder_id"].(*uuid.UUID), fc.Args["depth"].(*int))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*types.FolderNode)
+	fc.Result = res
+	return ec.marshalNFolderNode2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolderNodeᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_GetFolderTree(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_FolderNode_id(ctx, field)
+			case "name":
+				return ec.fieldContext_FolderNode_name(ctx, field)
+			case "parent_id":
+				return ec.fieldContext_FolderNode_parent_id(ctx, field)
+			case "document_count":
+				return ec.fieldContext_FolderNode_document_count(ctx, field)
+			case "folder_count":
+				return ec.fieldContext_FolderNode_folder_count(ctx, field)
+			case "folders":
+				return ec.fieldContext_FolderNode_folders(ctx, field)
+			case "created_at":
+				return ec.fieldContext_FolderNode_created_at(ctx, field)
+			case "updated_at":
+				return ec.fieldContext_FolderNode_updated_at(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type FolderNode", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_GetFolderTree_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2836,9 +3860,9 @@ func (ec *executionContext) _SearchResult_doc_id(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(uuid.UUID)
 	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
+	return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_SearchResult_doc_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2848,7 +3872,7 @@ func (ec *executionContext) fieldContext_SearchResult_doc_id(_ context.Context, 
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
+			return nil, errors.New("field of type UUID does not have child fields")
 		},
 	}
 	return fc, nil
@@ -5392,37 +6416,22 @@ func (ec *executionContext) _Document(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "folder_id":
+			out.Values[i] = ec._Document_folder_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "folder":
+			out.Values[i] = ec._Document_folder(ctx, field, obj)
 		case "status":
 			out.Values[i] = ec._Document_status(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "processing_step":
-			out.Values[i] = ec._Document_processing_step(ctx, field, obj)
 		case "page_count":
 			out.Values[i] = ec._Document_page_count(ctx, field, obj)
 		case "error":
 			out.Values[i] = ec._Document_error(ctx, field, obj)
-		case "doi":
-			out.Values[i] = ec._Document_doi(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "indication":
-			out.Values[i] = ec._Document_indication(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "study":
-			out.Values[i] = ec._Document_study(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "literature_type":
-			out.Values[i] = ec._Document_literature_type(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "created_at":
 			out.Values[i] = ec._Document_created_at(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -5550,6 +6559,133 @@ func (ec *executionContext) _Figure(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
+var folderImplementors = []string{"Folder"}
+
+func (ec *executionContext) _Folder(ctx context.Context, sel ast.SelectionSet, obj *types.Folder) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, folderImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Folder")
+		case "id":
+			out.Values[i] = ec._Folder_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._Folder_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "parent_id":
+			out.Values[i] = ec._Folder_parent_id(ctx, field, obj)
+		case "created_at":
+			out.Values[i] = ec._Folder_created_at(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updated_at":
+			out.Values[i] = ec._Folder_updated_at(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var folderNodeImplementors = []string{"FolderNode"}
+
+func (ec *executionContext) _FolderNode(ctx context.Context, sel ast.SelectionSet, obj *types.FolderNode) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, folderNodeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FolderNode")
+		case "id":
+			out.Values[i] = ec._FolderNode_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._FolderNode_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "parent_id":
+			out.Values[i] = ec._FolderNode_parent_id(ctx, field, obj)
+		case "document_count":
+			out.Values[i] = ec._FolderNode_document_count(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "folder_count":
+			out.Values[i] = ec._FolderNode_folder_count(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "folders":
+			out.Values[i] = ec._FolderNode_folders(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "created_at":
+			out.Values[i] = ec._FolderNode_created_at(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updated_at":
+			out.Values[i] = ec._FolderNode_updated_at(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var mutationImplementors = []string{"Mutation"}
 
 func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -5579,6 +6715,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "DeleteDocument":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_DeleteDocument(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "CreateFolder":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_CreateFolder(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "DeleteFolder":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_DeleteFolder(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "RenameFolder":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_RenameFolder(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -5625,7 +6782,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
-		case "GetDocumentByID":
+		case "GetDocument":
 			field := field
 
 			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
@@ -5634,7 +6791,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_GetDocumentByID(ctx, field)
+				res = ec._Query_GetDocument(ctx, field)
 				return res
 			}
 
@@ -5644,7 +6801,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "GetDocumentList":
+		case "GetDocumentListByFolder":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -5653,7 +6810,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_GetDocumentList(ctx, field)
+				res = ec._Query_GetDocumentListByFolder(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -5717,6 +6874,47 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_SearchDocuments(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "GetFolder":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_GetFolder(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "GetFolderTree":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_GetFolderTree(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -6434,20 +7632,72 @@ func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.S
 	return graphql.WrapContextMarshaler(ctx, res)
 }
 
-func (ec *executionContext) unmarshalNID2string(ctx context.Context, v any) (string, error) {
-	res, err := graphql.UnmarshalID(v)
-	return res, graphql.ErrorOnPath(ctx, err)
+func (ec *executionContext) marshalNFolder2githubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolder(ctx context.Context, sel ast.SelectionSet, v types.Folder) graphql.Marshaler {
+	return ec._Folder(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
-	_ = sel
-	res := graphql.MarshalID(v)
-	if res == graphql.Null {
+func (ec *executionContext) marshalNFolder2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolder(ctx context.Context, sel ast.SelectionSet, v *types.Folder) graphql.Marshaler {
+	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
+		return graphql.Null
 	}
-	return res
+	return ec._Folder(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNFolderNode2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolderNodeᚄ(ctx context.Context, sel ast.SelectionSet, v []*types.FolderNode) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNFolderNode2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolderNode(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNFolderNode2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolderNode(ctx context.Context, sel ast.SelectionSet, v *types.FolderNode) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._FolderNode(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
@@ -6620,36 +7870,6 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
-func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
-	var vSlice []any
-	vSlice = graphql.CoerceList(v)
-	var err error
-	res := make([]string, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	for i := range v {
-		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
-	}
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
 func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {
 	res, err := graphql.UnmarshalTime(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -6718,6 +7938,22 @@ func (ec *executionContext) marshalNTreeNode2ᚖgithubᚗcomᚋyichozyᚋpassion
 		return graphql.Null
 	}
 	return ec._TreeNode(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx context.Context, v any) (uuid.UUID, error) {
+	res, err := graphql.UnmarshalUUID(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx context.Context, sel ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalUUID(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
 }
 
 func (ec *executionContext) unmarshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, v any) (graphql.Upload, error) {
@@ -7026,40 +8262,11 @@ func (ec *executionContext) marshalODocument2ᚖgithubᚗcomᚋyichozyᚋpassion
 	return ec._Document(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOID2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var vSlice []any
-	vSlice = graphql.CoerceList(v)
-	var err error
-	res := make([]string, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNID2string(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) marshalOID2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+func (ec *executionContext) marshalOFolder2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolder(ctx context.Context, sel ast.SelectionSet, v *types.Folder) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	ret := make(graphql.Array, len(v))
-	for i := range v {
-		ret[i] = ec.marshalNID2string(ctx, sel, v[i])
-	}
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
+	return ec._Folder(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v any) (*int, error) {
@@ -7078,42 +8285,6 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	_ = ctx
 	res := graphql.MarshalInt(*v)
 	return res
-}
-
-func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var vSlice []any
-	vSlice = graphql.CoerceList(v)
-	var err error
-	res := make([]string, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	for i := range v {
-		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
-	}
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {
@@ -7139,6 +8310,60 @@ func (ec *executionContext) marshalOTreeNode2ᚖgithubᚗcomᚋyichozyᚋpassion
 		return graphql.Null
 	}
 	return ec._TreeNode(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOUUID2ᚕgithubᚗcomᚋgoogleᚋuuidᚐUUIDᚄ(ctx context.Context, v any) ([]uuid.UUID, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]uuid.UUID, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOUUID2ᚕgithubᚗcomᚋgoogleᚋuuidᚐUUIDᚄ(ctx context.Context, sel ast.SelectionSet, v []uuid.UUID) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx context.Context, v any) (*uuid.UUID, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalUUID(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx context.Context, sel ast.SelectionSet, v *uuid.UUID) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalUUID(*v)
+	return res
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

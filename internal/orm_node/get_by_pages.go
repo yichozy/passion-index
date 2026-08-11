@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/dao"
 	"github.com/yichozy/passion-index/models"
 )
 
 // GetByPages returns all node rows covering any of the given pages.
 // One SQL query with OR conditions — each row returned at most once.
-func GetByPages(ctx context.Context, docID string, pages []int) ([]models.Node, error) {
+func GetByPages(ctx context.Context, docID uuid.UUID, pages []int) ([]models.Node, error) {
 	if len(pages) == 0 {
 		return nil, nil
 	}
