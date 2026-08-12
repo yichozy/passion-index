@@ -87,14 +87,12 @@ make verify     # go vet + build smoke test
 
 ### Debug scripts
 
-Located in `scripts/`:
+Located in `scripts/` — see [`scripts/README.md`](scripts/README.md) for full usage:
 
-| Script | Usage |
+| Script | Subcommands |
 |---|---|
-| `scripts/upload.sh <pdf>` | Upload a PDF, returns doc_id |
-| `scripts/poll.sh <doc_id> [interval] [max_min]` | Poll status until DONE/FAILED |
-| `scripts/doc.sh <doc_id>` | Show document metadata |
-| `scripts/tree.sh <doc_id> [--raw]` | Show document tree (pretty outline or raw JSON) |
+| `scripts/folder.sh` | `create`, `get`, `tree`, `rename`, `delete`, `docs` |
+| `scripts/docs.sh` | `get`, `tree`, `node`, `pages`, `search`, `poll`, `upload` |
 
 ## GraphQL schema
 
