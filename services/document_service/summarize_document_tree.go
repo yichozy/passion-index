@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	SUMMARY_TIMEOUT     = 180 * time.Second
-	SUMMARY_CONCURRENCY = 8
+	SUMMARY_TIMEOUT     = 300 * time.Second
+	SUMMARY_CONCURRENCY = 6
 	// SMALL_NODE_TEXT_CHAR_SIZE: leaves with Text shorter than this (and no figures)
 	// reuse their own Text as Summary — the LLM would just rephrase it.
 	// ~200 tokens, matches PageIndex's small_node_tokens threshold.

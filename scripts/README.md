@@ -57,9 +57,10 @@ Medical  [019fef5f-4044-7a73-a145-8fed6ed49f70]  docs=0 subfolders=2
 ./scripts/docs.sh resummarize <doc_id> [--force]
 ```
 
-`resummarize` regenerates summaries on an already-processed document.
-Default (no `--force`) only fills empty summaries (e.g., previously failed
-LLM calls); `--force` regenerates every node. Sync — blocks 1-5 min.
+`resummarize` kicks off async summary regeneration. Default (no `--force`)
+only fills empty summaries (e.g., previously failed LLM calls); `--force`
+regenerates every node. Returns immediately — poll with `docs.sh poll <doc_id>`
+or watch status via `docs.sh get <doc_id>` (transitions `DONE → SUMMARY → DONE`).
 
 `tree` shows a pretty outline (titles, page ranges, summaries, figures).
 `--raw` dumps the raw JSON instead.

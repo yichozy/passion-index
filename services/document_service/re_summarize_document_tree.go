@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/aliyun"
 	"github.com/yichozy/hopebox/log"
+	"github.com/yichozy/passion-index/internal/orm_document"
 	"github.com/yichozy/passion-index/internal/orm_node"
 	"github.com/yichozy/passion-index/models"
 )
@@ -23,10 +24,24 @@ import (
 // already in OSS (uploaded during the original pipeline) are re-signed and
 // handed back to the LLM.
 //
-// Sync: blocks until summarization completes. Typical cost is the same as
-// the original SUMMARY step in the pipeline (1-5 min depending on tree
-// size and LLM speed).
-func ReSummarizeDocumentTree(ctx context.Context, doc_id uuid.UUID, force bool) error {
+// Status transitions mirror the original pipeline's SUMMARY phase so
+// pollers can detect the re-summarize in progress:
+//
+//	DONE → SUMMARY (start) → DONE (success) / FAILED (any error)
+//
+// Designed to run in a goroutine so the resolver returns immediately; the
+// caller passes context.WithoutCancel(ctx) so the work outlives the HTTP
+// request.
+func ReSummarizeDocumentTree(ctx context.Context, doc_id uuid.UUID, force bool) (err error) {
+	defer func() {
+		if err != nil {
+			log.Errorf(ctx, "resummarize[%s]: failed: %v", doc_id, err)
+			if e := orm_document.UpdateStatus(ctx, doc_id, models.StatusFailed); e != nil {
+				log.Errorf(ctx, "resummarize[%s]: failed to record FAILED status: %v", doc_id, e)
+			}
+		}
+	}()
+
 	rows, err := orm_node.GetByDocID(ctx, doc_id)
 	if err != nil {
 		return err
@@ -34,6 +49,12 @@ func ReSummarizeDocumentTree(ctx context.Context, doc_id uuid.UUID, force bool) 
 	if len(rows) == 0 {
 		return fmt.Errorf("document %s not found or has no tree", doc_id)
 	}
+
+	// Mark in-progress so pollers see the transition immediately.
+	if e := orm_document.UpdateStatus(ctx, doc_id, models.StatusSummary); e != nil {
+		return fmt.Errorf("set status SUMMARY: %w", e)
+	}
+
 	root := models.AssembleTree(rows)
 	levels := root.GroupByLevelBottomUp()
 
@@ -100,6 +121,9 @@ func ReSummarizeDocumentTree(ctx context.Context, doc_id uuid.UUID, force bool) 
 		}
 	}
 
+	if e := orm_document.UpdateStatus(ctx, doc_id, models.StatusDone); e != nil {
+		return fmt.Errorf("set status DONE: %w", e)
+	}
 	log.Infof(ctx, "resummarize[%s]: done (force=%v)", doc_id, force)
 	return nil
 }
