@@ -13,16 +13,17 @@ import (
 )
 
 type Document struct {
-	ID        uuid.UUID `json:"id"`
-	Filename  string    `json:"filename"`
-	FolderID  uuid.UUID `json:"folder_id"`
-	Folder    *Folder   `json:"folder,omitempty"`
-	Status    DocStatus `json:"status"`
-	PageCount *int      `json:"page_count,omitempty"`
-	Error     *string   `json:"error,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Tree      *TreeNode `json:"tree,omitempty"`
+	ID        uuid.UUID      `json:"id"`
+	Filename  string         `json:"filename"`
+	FolderID  uuid.UUID      `json:"folder_id"`
+	Folder    *Folder        `json:"folder,omitempty"`
+	Status    DocStatus      `json:"status"`
+	PageCount *int           `json:"page_count,omitempty"`
+	Error     *string        `json:"error,omitempty"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	Tree      *TreeNode      `json:"tree,omitempty"`
 }
 
 type DocumentList struct {

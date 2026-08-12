@@ -20,9 +20,9 @@ type SearchResult struct {
 }
 
 // SearchDocuments performs full-text search across documents.
-// All filter parameters are optional and AND-combined.
-func SearchDocuments(ctx context.Context, query string, doc_ids []uuid.UUID, doi string, indication, study, literature_type []string, limit int) ([]SearchResult, error) {
-	matched_nodes, err := orm_node.Search(ctx, query, doc_ids, doi, indication, study, literature_type, limit*5)
+// metadata filter is optional — when non-empty, scoped via JSONB @> containment.
+func SearchDocuments(ctx context.Context, query string, doc_ids []uuid.UUID, metadata map[string]any, limit int) ([]SearchResult, error) {
+	matched_nodes, err := orm_node.Search(ctx, query, doc_ids, metadata, limit*5)
 	if err != nil {
 		return nil, err
 	}

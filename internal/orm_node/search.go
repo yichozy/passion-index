@@ -2,10 +2,10 @@ package orm_node
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/yichozy/hopebox/dao"
 	"github.com/yichozy/passion-index/models"
 )
@@ -19,11 +19,12 @@ type NodeWithScore struct {
 }
 
 // Search performs full-text search on node title + summary + text.
-// Joins documents table to apply metadata filters (doi, indication, study,
-// literature_type) and retrieve filename in a single query.
+// Joins documents table to apply optional metadata filters (via JSONB @>
+// containment) and retrieve filename in a single query.
 //
-// All filter parameters are optional — empty values are skipped.
-func Search(ctx context.Context, query string, doc_ids []uuid.UUID, doi string, indication, study, literature_type []string, limit int) ([]NodeWithScore, error) {
+// metadata is optional — when non-empty, documents whose metadata column
+// does not contain all the given key-value pairs are excluded.
+func Search(ctx context.Context, query string, doc_ids []uuid.UUID, metadata map[string]any, limit int) ([]NodeWithScore, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -42,21 +43,11 @@ func Search(ctx context.Context, query string, doc_ids []uuid.UUID, doi string, 
 		}
 		conditions = append(conditions, "n.doc_id IN ("+strings.Join(placeholders, ",")+")")
 	}
-	if doi != "" {
-		conditions = append(conditions, "d.doi = ?")
-		args = append(args, doi)
-	}
-	if len(indication) > 0 {
-		conditions = append(conditions, "d.indication && ?")
-		args = append(args, pq.Array(indication))
-	}
-	if len(study) > 0 {
-		conditions = append(conditions, "d.study && ?")
-		args = append(args, pq.Array(study))
-	}
-	if len(literature_type) > 0 {
-		conditions = append(conditions, "d.literature_type && ?")
-		args = append(args, pq.Array(literature_type))
+
+	if len(metadata) > 0 {
+		metadataJSON, _ := json.Marshal(metadata)
+		conditions = append(conditions, "d.metadata @> ?::jsonb")
+		args = append(args, string(metadataJSON))
 	}
 
 	args = append(args, query, limit)

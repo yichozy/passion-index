@@ -26,10 +26,8 @@ func createDocumentIndexes(ctx context.Context, db *gorm.DB) {
 		// tsvector — for @@ full-text search operator
 		`CREATE INDEX IF NOT EXISTS idx_nodes_search ON nodes USING GIN (search_vector)`,
 
-		// text[] arrays — for && overlap operator
-		`CREATE INDEX IF NOT EXISTS idx_documents_indication ON documents USING GIN (indication)`,
-		`CREATE INDEX IF NOT EXISTS idx_documents_study ON documents USING GIN (study)`,
-		`CREATE INDEX IF NOT EXISTS idx_documents_literature_type ON documents USING GIN (literature_type)`,
+		// jsonb metadata — for @> containment operator
+		`CREATE INDEX IF NOT EXISTS idx_documents_metadata ON documents USING GIN (metadata)`,
 	}
 
 	for _, sql := range stmts {

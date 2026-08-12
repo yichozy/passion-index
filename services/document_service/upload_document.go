@@ -13,7 +13,8 @@ import (
 
 // UploadDocument reads the PDF, uploads it to OSS, creates a PENDING row
 // in DB, and kicks off background processing via GenerateDocumentTree.
-func UploadDocument(ctx context.Context, reader io.Reader, filename string, folder_id *uuid.UUID) (*models.Document, error) {
+// metadata is an optional free-form JSON object stored on the document.
+func UploadDocument(ctx context.Context, reader io.Reader, filename string, folder_id *uuid.UUID, metadata map[string]any) (*models.Document, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return nil, fmt.Errorf("generate uuid: %w", err)
@@ -39,6 +40,7 @@ func UploadDocument(ctx context.Context, reader io.Reader, filename string, fold
 		FileKey:       file_key,
 		Status:        models.StatusPending,
 		FolderID:      folder_id,
+		Metadata:      metadata,
 	}
 	if err := orm_document.Create(ctx, doc); err != nil {
 		return nil, fmt.Errorf("create doc row: %w", err)

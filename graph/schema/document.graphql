@@ -22,6 +22,7 @@ type Document {
   status: DocStatus!
   page_count: Int
   error: String
+  metadata: JSON
   created_at: Time!
   updated_at: Time!
   tree: TreeNode
@@ -68,11 +69,11 @@ type Query {
   GetDocumentListByFolder(folder_id: UUID!, recursive: Boolean = false, limit: Int = 20, offset: Int = 0): DocumentList!
   GetDocumentNodeByNodeID(doc_id: UUID!, node_id: Int!): TreeNode
   GetDocumentNodesByPages(doc_id: UUID!, pages: [Int!]!): [TreeNode!]!
-  SearchDocuments(query: String!, doc_ids: [UUID!], limit: Int = 10): [SearchResult!]!
+  SearchDocuments(query: String!, doc_ids: [UUID!], metadata: JSON, limit: Int = 10): [SearchResult!]!
 }
 
 type Mutation {
-  UploadDocument(file: Upload!, folder_id: UUID!): Document!
+  UploadDocument(file: Upload!, folder_id: UUID!, metadata: JSON): Document!
   DeleteDocument(doc_id: UUID!): Boolean!
   ReSummarizeDocument(doc_id: UUID!, force: Boolean = false): Boolean!
 }

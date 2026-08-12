@@ -43,3 +43,6 @@ models:
   UUID:
     model:
       - github.com/99designs/gqlgen/graphql.UUID
+  JSON:
+    model:
+      - github.com/99designs/gqlgen/graphql.Map
