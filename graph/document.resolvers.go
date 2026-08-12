@@ -37,6 +37,20 @@ func (r *mutationResolver) DeleteDocument(ctx context.Context, docID uuid.UUID) 
 	return orm_document.DeleteDocument(ctx, docID)
 }
 
+// ReSummarizeDocument regenerates summaries on an existing document.
+// force=false only fills empty summaries; force=true regenerates all.
+// Blocks until done (sync) — typical cost is 1-5 min depending on tree size.
+func (r *mutationResolver) ReSummarizeDocument(ctx context.Context, docID uuid.UUID, force *bool) (bool, error) {
+	f := false
+	if force != nil {
+		f = *force
+	}
+	if err := document_service.ReSummarizeDocumentTree(ctx, docID, f); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // GetDocument returns a single document by ID with its parsed tree if any.
 // Null when not found.
 func (r *queryResolver) GetDocument(ctx context.Context, id uuid.UUID) (*types.Document, error) {

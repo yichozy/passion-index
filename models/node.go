@@ -41,19 +41,23 @@ func (n *Node) FindByID(id int) *Node {
 }
 
 // GroupByLevelBottomUp returns non-synthetic nodes grouped by depth, in bottom-up
-// order (deepest level first, root level last). The synthetic root (ID=0,
-// depth=0) is excluded — every returned node is a real document section.
-// Within each level, nodes are in DFS order for stable processing.
+// order (deepest level first, root level last). The synthetic root (ID=0)
+// is excluded — every returned node is a real document section. Within each
+// level, nodes are in DFS order for stable processing.
 //
 // Used for bottom-up passes like summary generation: process each level in
 // parallel, wait, move up one level so parents can see their children's
 // results.
+//
+// Filter is by ID (==0 means synthetic), not by depth, so the function
+// works whether the input root is the synthetic wrapper or an unwrapped
+// real top-level node (AssembleTree unwraps when there is only one).
 func (root *Node) GroupByLevelBottomUp() [][]*Node {
 	by_depth := map[int][]*Node{}
 	max_depth := 0
 	var walk func(n *Node, depth int)
 	walk = func(n *Node, depth int) {
-		if depth > 0 { // skip synthetic root at depth 0
+		if n.ID != 0 { // skip synthetic root (ID=0); real nodes always included
 			by_depth[depth] = append(by_depth[depth], n)
 		}
 		if depth > max_depth {
@@ -66,7 +70,7 @@ func (root *Node) GroupByLevelBottomUp() [][]*Node {
 	walk(root, 0)
 
 	levels := make([][]*Node, 0, max_depth)
-	for d := max_depth; d >= 1; d-- {
+	for d := max_depth; d >= 0; d-- {
 		if nodes, ok := by_depth[d]; ok {
 			levels = append(levels, nodes)
 		}

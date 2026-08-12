@@ -9,11 +9,12 @@
 #   ./scripts/docs.sh search "<query>" [--doc-ids uuid1,uuid2]
 #   ./scripts/docs.sh poll <doc_id> [interval_seconds=5] [max_minutes=10]
 #   ./scripts/docs.sh upload <pdf_path> <folder_id>
+#   ./scripts/docs.sh resummarize <doc_id> [--force]
 set -eu
 BASE="${PASSION_INDEX_URL:-http://localhost:8900}"
 
 cmd="${1:-}"
-[ -z "$cmd" ] && { echo "usage: $0 <get|tree|node|pages|search|poll|upload> ..." >&2; exit 1; }
+[ -z "$cmd" ] && { echo "usage: $0 <get|tree|node|pages|search|poll|upload|resummarize> ..." >&2; exit 1; }
 shift
 
 # Send a JSON query and return the response body.
@@ -185,6 +186,21 @@ case "$cmd" in
 			-F map='{"0":["variables.file"]}' \
 			-F "0=@$pdf" \
 			| jq
+		;;
+
+	resummarize)
+		doc_id="${1:?usage: resummarize <doc_id> [--force]}"
+		shift
+		force="false"
+		while [ $# -gt 0 ]; do
+			case "$1" in
+				--force) force="true"; shift ;;
+				*) shift ;;
+			esac
+		done
+		query='mutation { ReSummarizeDocument(doc_id: "'"$doc_id"'", force: '"$force"') }'
+		resp=$(send_query "$query"); surface_errors "$resp"
+		echo "$resp" | jq '.data.ReSummarizeDocument'
 		;;
 
 	*)

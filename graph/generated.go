@@ -94,11 +94,12 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateFolder   func(childComplexity int, name string, parentID *uuid.UUID) int
-		DeleteDocument func(childComplexity int, docID uuid.UUID) int
-		DeleteFolder   func(childComplexity int, id uuid.UUID) int
-		RenameFolder   func(childComplexity int, id uuid.UUID, name string) int
-		UploadDocument func(childComplexity int, file graphql.Upload, folderID uuid.UUID) int
+		CreateFolder        func(childComplexity int, name string, parentID *uuid.UUID) int
+		DeleteDocument      func(childComplexity int, docID uuid.UUID) int
+		DeleteFolder        func(childComplexity int, id uuid.UUID) int
+		ReSummarizeDocument func(childComplexity int, docID uuid.UUID, force *bool) int
+		RenameFolder        func(childComplexity int, id uuid.UUID, name string) int
+		UploadDocument      func(childComplexity int, file graphql.Upload, folderID uuid.UUID) int
 	}
 
 	Query struct {
@@ -139,6 +140,7 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	UploadDocument(ctx context.Context, file graphql.Upload, folderID uuid.UUID) (*types.Document, error)
 	DeleteDocument(ctx context.Context, docID uuid.UUID) (bool, error)
+	ReSummarizeDocument(ctx context.Context, docID uuid.UUID, force *bool) (bool, error)
 	CreateFolder(ctx context.Context, name string, parentID *uuid.UUID) (*types.Folder, error)
 	DeleteFolder(ctx context.Context, id uuid.UUID) (bool, error)
 	RenameFolder(ctx context.Context, id uuid.UUID, name string) (*types.Folder, error)
@@ -410,6 +412,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.DeleteFolder(childComplexity, args["id"].(uuid.UUID)), true
+
+	case "Mutation.ReSummarizeDocument":
+		if e.complexity.Mutation.ReSummarizeDocument == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_ReSummarizeDocument_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.ReSummarizeDocument(childComplexity, args["doc_id"].(uuid.UUID), args["force"].(*bool)), true
 
 	case "Mutation.RenameFolder":
 		if e.complexity.Mutation.RenameFolder == nil {
@@ -853,6 +867,57 @@ func (ec *executionContext) field_Mutation_DeleteFolder_argsID(
 	}
 
 	var zeroVal uuid.UUID
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_ReSummarizeDocument_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_ReSummarizeDocument_argsDocID(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["doc_id"] = arg0
+	arg1, err := ec.field_Mutation_ReSummarizeDocument_argsForce(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["force"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_ReSummarizeDocument_argsDocID(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (uuid.UUID, error) {
+	if _, ok := rawArgs["doc_id"]; !ok {
+		var zeroVal uuid.UUID
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("doc_id"))
+	if tmp, ok := rawArgs["doc_id"]; ok {
+		return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, tmp)
+	}
+
+	var zeroVal uuid.UUID
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_ReSummarizeDocument_argsForce(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (*bool, error) {
+	if _, ok := rawArgs["force"]; !ok {
+		var zeroVal *bool
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("force"))
+	if tmp, ok := rawArgs["force"]; ok {
+		return ec.unmarshalOBoolean2ᚖbool(ctx, tmp)
+	}
+
+	var zeroVal *bool
 	return zeroVal, nil
 }
 
@@ -2936,6 +3001,61 @@ func (ec *executionContext) fieldContext_Mutation_DeleteDocument(ctx context.Con
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_DeleteDocument_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_ReSummarizeDocument(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_ReSummarizeDocument(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().ReSummarizeDocument(rctx, fc.Args["doc_id"].(uuid.UUID), fc.Args["force"].(*bool))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_ReSummarizeDocument(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_ReSummarizeDocument_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -6715,6 +6835,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "DeleteDocument":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_DeleteDocument(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "ReSummarizeDocument":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_ReSummarizeDocument(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++

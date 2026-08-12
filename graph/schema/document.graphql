@@ -74,4 +74,5 @@ type Query {
 type Mutation {
   UploadDocument(file: Upload!, folder_id: UUID!): Document!
   DeleteDocument(doc_id: UUID!): Boolean!
+  ReSummarizeDocument(doc_id: UUID!, force: Boolean = false): Boolean!
 }
