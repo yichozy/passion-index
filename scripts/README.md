@@ -51,9 +51,9 @@ Medical  [019fef5f-4044-7a73-a145-8fed6ed49f70]  docs=0 subfolders=2
 ./scripts/docs.sh tree <doc_id> [--raw]
 ./scripts/docs.sh node <doc_id> <node_id> [--raw]
 ./scripts/docs.sh pages <doc_id> <page1> [page2...]
-./scripts/docs.sh search "<query>" [--doc-ids uuid1,uuid2]
+./scripts/docs.sh search "<query>" [--doc-ids uuid1,uuid2] [--metadata '{"key":"value"}']
 ./scripts/docs.sh poll <doc_id> [interval_seconds=5] [max_minutes=10]
-./scripts/docs.sh upload <pdf_path> <folder_id>
+./scripts/docs.sh upload <pdf_path> <folder_id> [metadata_json]
 ./scripts/docs.sh resummarize <doc_id> [--force]
 ```
 
@@ -69,6 +69,8 @@ or watch status via `docs.sh get <doc_id>` (transitions `DONE → SUMMARY → DO
 
 `upload` is the only subcommand using multipart form (GraphQL `Upload`
 scalar). `folder_id` is **required** — every document must live in a folder.
+Optional third arg `metadata_json` attaches free-form metadata (e.g.
+`'{"doi":"10.1234/abc","indication":["lung cancer"]}'`).
 
 ## Common workflows
 

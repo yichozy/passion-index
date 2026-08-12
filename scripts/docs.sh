@@ -6,9 +6,9 @@
 #   ./scripts/docs.sh tree <doc_id> [--raw]
 #   ./scripts/docs.sh node <doc_id> <node_id> [--raw]
 #   ./scripts/docs.sh pages <doc_id> <page1> [page2...]
-#   ./scripts/docs.sh search "<query>" [--doc-ids uuid1,uuid2]
+#   ./scripts/docs.sh search "<query>" [--doc-ids uuid1,uuid2] [--metadata '{"key":"value"}']
 #   ./scripts/docs.sh poll <doc_id> [interval_seconds=5] [max_minutes=10]
-#   ./scripts/docs.sh upload <pdf_path> <folder_id>
+#   ./scripts/docs.sh upload <pdf_path> <folder_id> [metadata_json]
 #   ./scripts/docs.sh resummarize <doc_id> [--force]
 set -eu
 BASE="${PASSION_INDEX_URL:-http://localhost:8900}"
@@ -18,10 +18,16 @@ cmd="${1:-}"
 shift
 
 # Send a JSON query and return the response body.
+# Optional second arg: variables JSON object (for queries that need typed
+# variables like JSON scalars that can't be inlined in GraphQL).
 send_query() {
 	local query="$1"
 	local req
-	req=$(jq -n --arg q "$query" '{query: $q}')
+	if [ -n "${2:-}" ]; then
+		req=$(jq -n --arg q "$query" --argjson v "$2" '{query: $q, variables: $v}')
+	else
+		req=$(jq -n --arg q "$query" '{query: $q}')
+	fi
 	curl -s "$BASE/query" -H 'content-type: application/json' --data-binary "$req"
 }
 
@@ -38,7 +44,7 @@ surface_errors() {
 case "$cmd" in
 	get)
 		doc_id="${1:?usage: get <doc_id>}"
-		query='{ GetDocument(id: "'"$doc_id"'") { id filename status folder { id name } page_count error created_at updated_at } }'
+		query='{ GetDocument(id: "'"$doc_id"'") { id filename status folder { id name } metadata page_count error created_at updated_at } }'
 		resp=$(send_query "$query"); surface_errors "$resp"
 		echo "$resp" | jq '.data.GetDocument'
 		;;
@@ -117,12 +123,14 @@ case "$cmd" in
 		;;
 
 	search)
-		query_str="${1:?usage: search <query> [--doc-ids uuid1,uuid2]}"
+		query_str="${1:?usage: search <query> [--doc-ids uuid1,uuid2] [--metadata json]}"
 		shift
 		doc_ids=""
+		metadata=""
 		while [ $# -gt 0 ]; do
 			case "$1" in
 				--doc-ids) doc_ids="$2"; shift 2 ;;
+				--metadata) metadata="$2"; shift 2 ;;
 				*) shift ;;
 			esac
 		done
@@ -131,8 +139,19 @@ case "$cmd" in
 			ids=$(echo "$doc_ids" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | paste -sd, -)
 			doc_ids_arg="doc_ids: [$ids],"
 		fi
-		query='{ SearchDocuments(query: "'"$query_str"'", '"$doc_ids_arg"' limit: 10) { doc_id filename score matches { node_id score } } }'
-		resp=$(send_query "$query"); surface_errors "$resp"
+		# GraphQL doesn't support inline JSON objects — pass metadata as variable.
+		gql_query='query($metadata: JSON) {
+			SearchDocuments(query: "'"$query_str"'", '"$doc_ids_arg"' metadata: $metadata, limit: 10) {
+				doc_id filename score
+				matches { node_id score }
+			}
+		}'
+		if [ -n "$metadata" ]; then
+			resp=$(send_query "$gql_query" "{\"metadata\":$metadata}")
+		else
+			resp=$(send_query "$gql_query" '{"metadata":null}')
+		fi
+		surface_errors "$resp"
 		echo "$resp" | jq -r '
 			if (.data.SearchDocuments | length) == 0 then
 				"(no results)"
@@ -174,15 +193,17 @@ case "$cmd" in
 		;;
 
 	upload)
-		pdf="${1:?usage: upload <pdf_path> <folder_id>}"
-		folder_id="${2:?usage: upload <pdf_path> <folder_id>}"
+		pdf="${1:?usage: upload <pdf_path> <folder_id> [metadata_json]}"
+		folder_id="${2:?usage: upload <pdf_path> <folder_id> [metadata_json]}"
+		metadata_json="${3:-null}"
 		if [ ! -f "$pdf" ]; then
 			echo "error: file not found: $pdf" >&2
 			exit 1
 		fi
-		# Upload uses multipart form (different from other queries).
+		# Upload uses multipart form. metadata_json is either a JSON object
+		# string (e.g. '{"doi":"10.1234"}') or null when omitted.
 		curl -s "$BASE/query" \
-			-F operations='{"query":"mutation($file: Upload!, $folder_id: UUID!) { UploadDocument(file: $file, folder_id: $folder_id) { id filename status folder { id name } } }","variables":{"file":null,"folder_id":"'"$folder_id"'"}}' \
+			-F operations='{"query":"mutation($file: Upload!, $folder_id: UUID!, $metadata: JSON) { UploadDocument(file: $file, folder_id: $folder_id, metadata: $metadata) { id filename status metadata folder { id name } } }","variables":{"file":null,"folder_id":"'"$folder_id"'","metadata":'"$metadata_json"'}}' \
 			-F map='{"0":["variables.file"]}' \
 			-F "0=@$pdf" \
 			| jq
