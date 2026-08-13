@@ -17,6 +17,8 @@ enum DocStatus {
 type Document {
   id: UUID!
   filename: String!
+  title: String
+  description: String
   folder_id: UUID!
   folder: Folder
   status: DocStatus!
@@ -29,7 +31,7 @@ type Document {
 }
 
 type TreeNode {
-  node_id: UUID!
+  id: UUID!
   parent_id: UUID
   title: String!
   page_start: Int!

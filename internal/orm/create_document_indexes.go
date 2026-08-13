@@ -17,11 +17,13 @@ import (
 func createDocumentIndexes(ctx context.Context, db *gorm.DB) {
 	stmts := []string{
 		// BM25 index over the searchable text fields. key_field='id' (UUID PK)
-		// gives paradedb.score(id) a stable row identifier.
-		// Empty field configs ({}) use the default tokenizer (English-friendly,
-		// whitespace split + lowercase).
+		// gives paradedb.score() a stable row identifier.
+		//
+		// Syntax note: paradedb 0.25.x requires ((table.*)) as the index input
+		// (single parentheses + bare table name errors with "column does not
+		// exist"). Empty field configs ({}) use the default tokenizer.
 		`CREATE INDEX IF NOT EXISTS idx_nodes_search ON nodes
-			USING bm25 (nodes) WITH (
+			USING bm25 ((nodes.*)) WITH (
 				key_field = 'id',
 				text_fields = '{"title": {}, "summary": {}, "text": {}}'
 			)`,

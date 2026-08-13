@@ -40,17 +40,19 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Document struct {
-		CreatedAt func(childComplexity int) int
-		Error     func(childComplexity int) int
-		Filename  func(childComplexity int) int
-		Folder    func(childComplexity int) int
-		FolderID  func(childComplexity int) int
-		ID        func(childComplexity int) int
-		Metadata  func(childComplexity int) int
-		PageCount func(childComplexity int) int
-		Status    func(childComplexity int) int
-		Tree      func(childComplexity int) int
-		UpdatedAt func(childComplexity int) int
+		CreatedAt   func(childComplexity int) int
+		Description func(childComplexity int) int
+		Error       func(childComplexity int) int
+		Filename    func(childComplexity int) int
+		Folder      func(childComplexity int) int
+		FolderID    func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Metadata    func(childComplexity int) int
+		PageCount   func(childComplexity int) int
+		Status      func(childComplexity int) int
+		Title       func(childComplexity int) int
+		Tree        func(childComplexity int) int
+		UpdatedAt   func(childComplexity int) int
 	}
 
 	DocumentList struct {
@@ -117,7 +119,7 @@ type ComplexityRoot struct {
 
 	TreeNode struct {
 		Figures   func(childComplexity int) int
-		NodeID    func(childComplexity int) int
+		ID        func(childComplexity int) int
 		Nodes     func(childComplexity int) int
 		PageEnd   func(childComplexity int) int
 		PageStart func(childComplexity int) int
@@ -166,6 +168,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Document.CreatedAt(childComplexity), true
+	case "Document.description":
+		if e.ComplexityRoot.Document.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Document.Description(childComplexity), true
 	case "Document.error":
 		if e.ComplexityRoot.Document.Error == nil {
 			break
@@ -214,6 +222,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Document.Status(childComplexity), true
+	case "Document.title":
+		if e.ComplexityRoot.Document.Title == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Document.Title(childComplexity), true
 	case "Document.tree":
 		if e.ComplexityRoot.Document.Tree == nil {
 			break
@@ -535,12 +549,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.TreeNode.Figures(childComplexity), true
-	case "TreeNode.node_id":
-		if e.ComplexityRoot.TreeNode.NodeID == nil {
+	case "TreeNode.id":
+		if e.ComplexityRoot.TreeNode.ID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.TreeNode.NodeID(childComplexity), true
+		return e.ComplexityRoot.TreeNode.ID(childComplexity), true
 	case "TreeNode.nodes":
 		if e.ComplexityRoot.TreeNode.Nodes == nil {
 			break
@@ -693,6 +707,10 @@ func (ec *executionContext) childFields_Document(ctx context.Context, field grap
 		return ec.fieldContext_Document_id(ctx, field)
 	case "filename":
 		return ec.fieldContext_Document_filename(ctx, field)
+	case "title":
+		return ec.fieldContext_Document_title(ctx, field)
+	case "description":
+		return ec.fieldContext_Document_description(ctx, field)
 	case "folder_id":
 		return ec.fieldContext_Document_folder_id(ctx, field)
 	case "folder":
@@ -803,8 +821,8 @@ func (ec *executionContext) childFields_SearchResult(ctx context.Context, field 
 
 func (ec *executionContext) childFields_TreeNode(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "node_id":
-		return ec.fieldContext_TreeNode_node_id(ctx, field)
+	case "id":
+		return ec.fieldContext_TreeNode_id(ctx, field)
 	case "parent_id":
 		return ec.fieldContext_TreeNode_parent_id(ctx, field)
 	case "title":
@@ -1348,6 +1366,52 @@ func (ec *executionContext) _Document_filename(ctx context.Context, field graphq
 	)
 }
 func (ec *executionContext) fieldContext_Document_filename(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Document", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Document_title(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Document_title(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Title, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Document_title(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Document", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Document_description(ctx context.Context, field graphql.CollectedField, obj *types.Document) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Document_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Document_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Document", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
@@ -2826,16 +2890,16 @@ func (ec *executionContext) fieldContext_SearchResult_matches(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _TreeNode_node_id(ctx context.Context, field graphql.CollectedField, obj *types.TreeNode) (ret graphql.Marshaler) {
+func (ec *executionContext) _TreeNode_id(ctx context.Context, field graphql.CollectedField, obj *types.TreeNode) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TreeNode_node_id(ctx, field)
+			return ec.fieldContext_TreeNode_id(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.NodeID, nil
+			return obj.ID, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
@@ -2845,7 +2909,7 @@ func (ec *executionContext) _TreeNode_node_id(ctx context.Context, field graphql
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_TreeNode_node_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_TreeNode_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("TreeNode", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
@@ -4139,6 +4203,10 @@ func (ec *executionContext) _Document(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "title":
+			out.Values[i] = ec._Document_title(ctx, field, obj)
+		case "description":
+			out.Values[i] = ec._Document_description(ctx, field, obj)
 		case "folder_id":
 			out.Values[i] = ec._Document_folder_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -4799,8 +4867,8 @@ func (ec *executionContext) _TreeNode(ctx context.Context, sel ast.SelectionSet,
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("TreeNode")
-		case "node_id":
-			out.Values[i] = ec._TreeNode_node_id(ctx, field, obj)
+		case "id":
+			out.Values[i] = ec._TreeNode_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

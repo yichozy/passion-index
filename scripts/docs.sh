@@ -47,7 +47,7 @@ surface_errors() {
 case "$cmd" in
 	get)
 		doc_id="${1:?usage: get <doc_id>}"
-		query='{ GetDocument(id: "'"$doc_id"'") { id filename status folder { id name } metadata page_count error created_at updated_at } }'
+		query='{ GetDocument(id: "'"$doc_id"'") { id filename title description status folder { id name } metadata page_count error created_at updated_at } }'
 		resp=$(send_query "$query"); surface_errors "$resp"
 		echo "$resp" | jq '.data.GetDocument'
 		;;
@@ -55,7 +55,7 @@ case "$cmd" in
 	tree)
 		doc_id="${1:?usage: tree <doc_id> [--raw]}"
 		mode="${2:-pretty}"
-		query='{ GetDocument(id: "'"$doc_id"'") { status page_count tree { node_id title page_start page_end summary figures { name caption } nodes { node_id title page_start page_end summary figures { name caption } nodes { node_id title page_start page_end summary figures { name caption } nodes { node_id title page_start page_end summary figures { name caption } nodes { node_id title page_start page_end summary figures { name caption } } } } } } } }'
+		query='{ GetDocument(id: "'"$doc_id"'") { status page_count tree { id title page_start page_end summary figures { name caption } nodes { id title page_start page_end summary figures { name caption } nodes { id title page_start page_end summary figures { name caption } nodes { id title page_start page_end summary figures { name caption } nodes { id title page_start page_end summary figures { name caption } } } } } } } }'
 		resp=$(send_query "$query"); surface_errors "$resp"
 		if [ "$mode" = "--raw" ]; then
 			echo "$resp" | jq '.data.GetDocument'
@@ -65,7 +65,7 @@ case "$cmd" in
 			def show($d):
 				(if .title == "" then "(root)" else .title end) as $t
 				| ((.figures // []) | length) as $fig_count
-				| ("  " * $d + "• " + $t + "  [" + (.node_id|tostring) + "]  p" + (.page_start|tostring) + "-" + (.page_end|tostring)
+				| ("  " * $d + "• " + $t + "  [" + (.id|tostring) + "]  p" + (.page_start|tostring) + "-" + (.page_end|tostring)
 						+ (if $fig_count > 0 then "  (" + ($fig_count|tostring) + " fig)" else "" end)),
 					(if (.summary // "") != "" then
 						"  " * ($d + 1) + "↳ " + (.summary | .[0:100] + (if length > 100 then "..." else "" end))
@@ -81,7 +81,7 @@ case "$cmd" in
 	node)
 		node_id="${1:?usage: node <node_id> [--raw]}"
 		mode="${2:-pretty}"
-		query='{ GetDocumentNode(node_id: "'"$node_id"'") { node_id title page_start page_end summary text figures { name page caption } nodes { node_id title summary nodes { node_id title summary } } } }'
+		query='{ GetDocumentNode(node_id: "'"$node_id"'") { id title page_start page_end summary text figures { name page caption } nodes { id title summary nodes { id title summary } } } }'
 		resp=$(send_query "$query"); surface_errors "$resp"
 		if [ "$mode" = "--raw" ]; then
 			echo "$resp" | jq '.data.GetDocumentNode'
@@ -92,12 +92,12 @@ case "$cmd" in
 			if $n == null then
 				"(node not found)"
 			else
-				"● \($n.title)  [\($n.node_id)]  p\($n.page_start)-\($n.page_end)",
+				"● \($n.title)  [\($n.id)]  p\($n.page_start)-\($n.page_end)",
 				(if ($n.summary // "") != "" then "  ↳ \($n.summary)" else empty end),
 				(if ($n.text // "") != "" then "  [text]" else empty end),
 				(if ($n.text // "") != "" then $n.text else empty end),
 				(($n.figures // [])[] | "  📷 \(.name) (p\(.page)) \(.caption // "")"),
-				(($n.nodes // [])[] | "  └─ \(.title)  [\(.node_id)] \(.summary[:80] // "")")
+				(($n.nodes // [])[] | "  └─ \(.title)  [\(.id)] \(.summary[:80] // "")")
 			end
 		'
 		;;
@@ -107,7 +107,7 @@ case "$cmd" in
 		shift
 		[ $# -eq 0 ] && { echo "error: provide at least one page number" >&2; exit 1; }
 		pages=$(IFS=,; echo "[${*}]")
-		query='{ GetDocumentNodesByPages(doc_id: "'"$doc_id"'", pages: '"$pages"') { node_id title page_start page_end summary text } }'
+		query='{ GetDocumentNodesByPages(doc_id: "'"$doc_id"'", pages: '"$pages"') { id title page_start page_end summary text } }'
 		resp=$(send_query "$query"); surface_errors "$resp"
 		echo "$resp" | jq -r '
 			if .data.GetDocumentNodesByPages == null then
@@ -116,7 +116,7 @@ case "$cmd" in
 				"(no nodes cover the requested pages)"
 			else
 				.data.GetDocumentNodesByPages[] |
-				"● \(.title)  [\(.node_id)]  p\(.page_start)-\(.page_end)",
+				"● \(.title)  [\(.id)]  p\(.page_start)-\(.page_end)",
 				(if (.summary // "") != "" then "  ↳ \(.summary)" else empty end),
 				(if (.text // "") != "" then .text else "(no text)" end),
 				""

@@ -13,17 +13,19 @@ import (
 )
 
 type Document struct {
-	ID        uuid.UUID      `json:"id"`
-	Filename  string         `json:"filename"`
-	FolderID  uuid.UUID      `json:"folder_id"`
-	Folder    *Folder        `json:"folder,omitempty"`
-	Status    DocStatus      `json:"status"`
-	PageCount *int           `json:"page_count,omitempty"`
-	Error     *string        `json:"error,omitempty"`
-	Metadata  map[string]any `json:"metadata,omitempty"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	Tree      *TreeNode      `json:"tree,omitempty"`
+	ID          uuid.UUID      `json:"id"`
+	Filename    string         `json:"filename"`
+	Title       *string        `json:"title,omitempty"`
+	Description *string        `json:"description,omitempty"`
+	FolderID    uuid.UUID      `json:"folder_id"`
+	Folder      *Folder        `json:"folder,omitempty"`
+	Status      DocStatus      `json:"status"`
+	PageCount   *int           `json:"page_count,omitempty"`
+	Error       *string        `json:"error,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	Tree        *TreeNode      `json:"tree,omitempty"`
 }
 
 type DocumentList struct {
@@ -76,7 +78,7 @@ type SearchResult struct {
 }
 
 type TreeNode struct {
-	NodeID    uuid.UUID   `json:"node_id"`
+	ID        uuid.UUID   `json:"id"`
 	ParentID  *uuid.UUID  `json:"parent_id,omitempty"`
 	Title     string      `json:"title"`
 	PageStart int         `json:"page_start"`

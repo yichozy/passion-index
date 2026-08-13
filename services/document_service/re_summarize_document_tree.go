@@ -121,6 +121,14 @@ func ReSummarizeDocumentTree(ctx context.Context, doc_id uuid.UUID, force bool) 
 		}
 	}
 
+	// Description = root node's summary. Only when single top-level node
+	// (synthetic root has no summary of its own).
+	if root.ID != uuid.Nil {
+		if e := orm_document.UpdateDescription(ctx, doc_id, root.Summary); e != nil {
+			log.Warnf(ctx, "resummarize[%s]: failed to update description: %v", doc_id, e)
+		}
+	}
+
 	if e := orm_document.UpdateStatus(ctx, doc_id, models.StatusDone); e != nil {
 		return fmt.Errorf("set status DONE: %w", e)
 	}

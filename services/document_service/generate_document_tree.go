@@ -93,8 +93,17 @@ func GenerateDocumentTree(ctx context.Context, doc_id uuid.UUID) (err error) {
 	root_node, page_count := ConvertPopoResultToTree(popo_doc)
 
 	doc.PageCount = page_count
+	// Title comes from the doc's top-level node, set by Popo during
+	// structuring. ConvertPopoResultToTree always returns a synthetic root
+	// (ID=uuid.Nil) wrapping the real top-level nodes in Nodes[], so we look
+	// at len(Nodes): single top-level → use its title; multi top-level → no
+	// doc-level title (consistent with the description rule below and with
+	// AssembleTree's unwrap behavior on the read path).
+	if len(root_node.Nodes) == 1 {
+		doc.Title = root_node.Nodes[0].Title
+	}
 	if err = orm_document.Update(ctx, &doc); err != nil {
-		return fmt.Errorf("update page_count: %w", err)
+		return fmt.Errorf("update page_count + title: %w", err)
 	}
 	log.Infof(ctx, "pipeline[%s]: structuring done — %d nodes, %d pages", doc_id, len(root_node.Nodes), page_count)
 
@@ -151,6 +160,12 @@ func GenerateDocumentTree(ctx context.Context, doc_id uuid.UUID) (err error) {
 	rows := root_node.FlattenTree(doc.ID)
 	if err := orm_node.Create(ctx, rows); err != nil {
 		return fmt.Errorf("insert nodes: %w", err)
+	}
+
+	// Description = doc-level summary from the single top-level node's
+	// LLM-generated summary. Same single-top-level rule as title.
+	if len(root_node.Nodes) == 1 {
+		doc.Description = root_node.Nodes[0].Summary
 	}
 
 	// Done — update document metadata.

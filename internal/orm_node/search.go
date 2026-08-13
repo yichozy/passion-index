@@ -35,8 +35,10 @@ func Search(ctx context.Context, query string, doc_ids []uuid.UUID, metadata map
 	var conditions []string
 	var args []interface{}
 
-	// BM25 match — operator binds left-to-right against the table alias.
-	conditions = append(conditions, "n @@@ paradedb.match(?)")
+	// paradedb.parse takes a query string and matches across all indexed
+	// text fields (title/summary/text). Default tokenizer is whitespace +
+	// lowercase; multi-word queries OR-match by default, BM25 ranks.
+	conditions = append(conditions, "n @@@ paradedb.parse(?)")
 	args = append(args, query)
 
 	// Soft-delete filter — gorm.Raw does not add this automatically.
@@ -63,7 +65,7 @@ func Search(ctx context.Context, query string, doc_ids []uuid.UUID, metadata map
 	sql := `
 		SELECT n.doc_id, n.id, n.parent_id, n.title, n.summary, n.page_start, n.page_end,
 		       d.filename,
-		       paradedb.score(n.id) AS score
+		       paradedb.score(n) AS score
 		FROM nodes n
 		JOIN documents d ON n.doc_id = d.id
 		WHERE ` + strings.Join(conditions, " AND ") + `

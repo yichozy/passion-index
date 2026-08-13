@@ -7,13 +7,15 @@ import (
 // Document is the documents table row.
 type Document struct {
 	BaseUUIDModel
-	Filename  string         `gorm:"not null" json:"filename"`
-	FileKey   string         `gorm:"not null" json:"file_key"`
-	Status    string         `gorm:"index;not null" json:"status"`
-	PageCount int            `json:"page_count"`
-	Error     string         `json:"error"`
-	Metadata  map[string]any `gorm:"type:jsonb;serializer:json" json:"metadata,omitempty"`
-	FolderID  *uuid.UUID     `gorm:"index;type:uuid" json:"folder_id"`
+	Filename    string         `gorm:"not null" json:"filename"`
+	Title       string         `gorm:"type:text" json:"title,omitempty"`
+	Description string         `gorm:"type:text" json:"description,omitempty"`
+	FileKey     string         `gorm:"not null" json:"file_key"`
+	Status      string         `gorm:"index;not null" json:"status"`
+	PageCount   int            `json:"page_count"`
+	Error       string         `json:"error"`
+	Metadata    map[string]any `gorm:"type:jsonb;serializer:json" json:"metadata,omitempty"`
+	FolderID    *uuid.UUID     `gorm:"index;type:uuid" json:"folder_id"`
 
 	// GORM relationship — see Folder for the constraint policy.
 	Folder *Folder `gorm:"foreignKey:FolderID;constraint:-" json:"-"`
