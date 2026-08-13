@@ -66,7 +66,7 @@ case "$cmd" in
         *) shift ;;
       esac
     done
-    query='{ GetDocumentListByFolder(folder_id: "'"$folder_id"'", recursive: '"$recursive"', limit: '"$limit"', offset: '"$offset"') { total items { id filename status folder { id name } created_at } } }'
+    query='{ GetDocumentListByFolder(folder_id: "'"$folder_id"'", recursive: '"$recursive"', limit: '"$limit"', offset: '"$offset"') { total items { id filename title description status folder { id name } created_at } } }'
     ;;
   *)
     echo "unknown command: $cmd" >&2
@@ -113,7 +113,9 @@ case "$cmd" in
       "total: \($r.total)",
       "",
       ($r.items[]? |
-        "📄 \(.filename)  [\(.status)]  [\(.id)]  folder=\(.folder.name // "-")")
+        "📄 \(.filename)  [\(.status)]  [\(.id)]  folder=\(.folder.name // "-")",
+        (if (.title // "") != "" then "  title:       \(.title)" else empty end),
+        (if (.description // "") != "" then "  description: \(.description | .[0:120] + (if length > 120 then "..." else "" end))" else empty end))
     '
     ;;
 esac
