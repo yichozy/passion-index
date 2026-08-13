@@ -8,25 +8,25 @@ import (
 )
 
 // createDocumentIndexes runs SQL that gorm struct tags can't express:
-// - GENERATED tsvector column on nodes (full-text search)
-// - GIN indexes on tsvector + text[] array columns
+// - BM25 index on nodes via pg_search (full-text search with proper BM25
+//   ranking: saturation, length normalization, IDF — none of which ts_rank
+//   provides).
+// - GIN index on documents.metadata for JSONB @> containment filters.
+//
+// The pg_search extension must be enabled first (see migrate.go).
 func createDocumentIndexes(ctx context.Context, db *gorm.DB) {
 	stmts := []string{
-		// Full-text search: generated tsvector column.
-		// Title weight A (highest), summary B, text C (lowest).
-		`DO $$ BEGIN
-			ALTER TABLE nodes ADD COLUMN IF NOT EXISTS search_vector tsvector
-				GENERATED ALWAYS AS (
-					setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
-					setweight(to_tsvector('english', coalesce(summary, '')), 'B') ||
-					setweight(to_tsvector('english', coalesce(text, '')), 'C')
-				) STORED;
-		EXCEPTION WHEN OTHERS THEN NULL; END $$`,
+		// BM25 index over the searchable text fields. key_field='id' (UUID PK)
+		// gives paradedb.score(id) a stable row identifier.
+		// Empty field configs ({}) use the default tokenizer (English-friendly,
+		// whitespace split + lowercase).
+		`CREATE INDEX IF NOT EXISTS idx_nodes_search ON nodes
+			USING bm25 (nodes) WITH (
+				key_field = 'id',
+				text_fields = '{"title": {}, "summary": {}, "text": {}}'
+			)`,
 
-		// tsvector — for @@ full-text search operator
-		`CREATE INDEX IF NOT EXISTS idx_nodes_search ON nodes USING GIN (search_vector)`,
-
-		// jsonb metadata — for @> containment operator
+		// jsonb metadata — for @> containment operator on documents
 		`CREATE INDEX IF NOT EXISTS idx_documents_metadata ON documents USING GIN (metadata)`,
 	}
 

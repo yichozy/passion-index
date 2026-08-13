@@ -49,7 +49,7 @@ Medical  [019fef5f-4044-7a73-a145-8fed6ed49f70]  docs=0 subfolders=2
 ```
 ./scripts/docs.sh get <doc_id>
 ./scripts/docs.sh tree <doc_id> [--raw]
-./scripts/docs.sh node <doc_id> <node_id> [--raw]
+./scripts/docs.sh node <node_id> [--raw]
 ./scripts/docs.sh pages <doc_id> <page1> [page2...]
 ./scripts/docs.sh search "<query>" [--doc-ids uuid1,uuid2] [--metadata '{"key":"value"}']
 ./scripts/docs.sh poll <doc_id> [interval_seconds=5] [max_minutes=10]
@@ -106,5 +106,5 @@ DOC_ID=$(./scripts/docs.sh upload paper.pdf "$ONCOLOGY" | jq -r '.data.UploadDoc
 
 ```bash
 ./scripts/docs.sh pages "$DOC_ID" 1 5 10
-./scripts/docs.sh node  "$DOC_ID" 3 --raw
+./scripts/docs.sh node  "$NODE_ID" --raw   # NODE_ID is a UUID now
 ```

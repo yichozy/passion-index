@@ -8,8 +8,8 @@ import (
 )
 
 type SearchMatch struct {
-	NodeID int     `json:"node_id"`
-	Score  float64 `json:"score"`
+	NodeID uuid.UUID `json:"node_id"`
+	Score  float64   `json:"score"`
 }
 
 type SearchResult struct {

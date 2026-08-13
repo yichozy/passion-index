@@ -18,9 +18,12 @@ type NodeWithScore struct {
 	Score    float64 `gorm:"column:score" json:"score"`
 }
 
-// Search performs full-text search on node title + summary + text.
+// Search performs BM25 search via pg_search (paradedb).
 // Joins documents table to apply optional metadata filters (via JSONB @>
 // containment) and retrieve filename in a single query.
+//
+// Soft-deleted rows are excluded (gorm.Raw does not auto-apply the
+// DeletedAt filter, so we add it explicitly).
 //
 // metadata is optional — when non-empty, documents whose metadata column
 // does not contain all the given key-value pairs are excluded.
@@ -29,13 +32,16 @@ func Search(ctx context.Context, query string, doc_ids []uuid.UUID, metadata map
 		limit = 10
 	}
 
-	// Bind query once via CTE — referenced twice (score + WHERE) without
-	// having to pass it twice in args. Also avoids textual-`?`-order bugs
-	// since GORM binds placeholders in SQL text order.
-	args := []interface{}{query}
-
 	var conditions []string
-	conditions = append(conditions, "n.search_vector @@ q.tsq")
+	var args []interface{}
+
+	// BM25 match — operator binds left-to-right against the table alias.
+	conditions = append(conditions, "n @@@ paradedb.match(?)")
+	args = append(args, query)
+
+	// Soft-delete filter — gorm.Raw does not add this automatically.
+	conditions = append(conditions, "n.deleted_at IS NULL")
+	conditions = append(conditions, "d.deleted_at IS NULL")
 
 	if len(doc_ids) > 0 {
 		placeholders := make([]string, len(doc_ids))
@@ -55,13 +61,11 @@ func Search(ctx context.Context, query string, doc_ids []uuid.UUID, metadata map
 	args = append(args, limit)
 
 	sql := `
-		WITH q AS (SELECT plainto_tsquery('english', ?) AS tsq)
 		SELECT n.doc_id, n.id, n.parent_id, n.title, n.summary, n.page_start, n.page_end,
 		       d.filename,
-		       ts_rank_cd(n.search_vector, q.tsq) AS score
+		       paradedb.score(n.id) AS score
 		FROM nodes n
 		JOIN documents d ON n.doc_id = d.id
-		CROSS JOIN q
 		WHERE ` + strings.Join(conditions, " AND ") + `
 		ORDER BY score DESC
 		LIMIT ?`

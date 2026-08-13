@@ -29,8 +29,8 @@ type Document {
 }
 
 type TreeNode {
-  node_id: Int!
-  parent_id: Int
+  node_id: UUID!
+  parent_id: UUID
   title: String!
   page_start: Int!
   page_end: Int!
@@ -53,7 +53,7 @@ type DocumentList {
 }
 
 type SearchMatch {
-  node_id: Int!
+  node_id: UUID!
   score: Float!
 }
 
@@ -67,7 +67,7 @@ type SearchResult {
 type Query {
   GetDocument(id: UUID!): Document
   GetDocumentListByFolder(folder_id: UUID!, recursive: Boolean = false, limit: Int = 20, offset: Int = 0): DocumentList!
-  GetDocumentNodeByNodeID(doc_id: UUID!, node_id: Int!): TreeNode
+  GetDocumentNode(node_id: UUID!): TreeNode
   GetDocumentNodesByPages(doc_id: UUID!, pages: [Int!]!): [TreeNode!]!
   SearchDocuments(query: String!, doc_ids: [UUID!], metadata: JSON, limit: Int = 10): [SearchResult!]!
 }

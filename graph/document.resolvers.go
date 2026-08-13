@@ -7,6 +7,7 @@ package graph
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/99designs/gqlgen/graphql"
@@ -17,6 +18,7 @@ import (
 	"github.com/yichozy/passion-index/internal/orm_node"
 	"github.com/yichozy/passion-index/models"
 	"github.com/yichozy/passion-index/services/document_service"
+	"gorm.io/gorm"
 )
 
 // UploadDocument reads the PDF, uploads it to OSS, creates a PENDING row in DB,
@@ -114,17 +116,17 @@ func (r *queryResolver) GetDocumentListByFolder(ctx context.Context, folderID uu
 	return &types.DocumentList{Items: items, Total: int(total)}, nil
 }
 
-// GetDocumentNodeByNodeID returns a single node of a document's parsed tree.
-func (r *queryResolver) GetDocumentNodeByNodeID(ctx context.Context, docID uuid.UUID, nodeID int) (*types.TreeNode, error) {
-	node, err := document_service.GetDocumentNodeByDocumentID(ctx, docID, nodeID)
+// GetDocumentNode returns a single node by UUID.
+func (r *queryResolver) GetDocumentNode(ctx context.Context, nodeID uuid.UUID) (*types.TreeNode, error) {
+	node, err := orm_node.GetByID(ctx, nodeID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
-	if node == nil {
-		return nil, nil
-	}
 	var tn types.TreeNode
-	if err := utils.CopyObj(node, &tn); err != nil {
+	if err := utils.CopyObj(&node, &tn); err != nil {
 		return nil, fmt.Errorf("copy node: %w", err)
 	}
 	return &tn, nil
@@ -147,8 +149,8 @@ func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID uuid.
 	return out, nil
 }
 
-// SearchDocuments ranks documents by PG tsvector match against the query.
-// metadata filter scopes results via JSONB @> containment when provided.
+// SearchDocuments ranks documents by BM25 via pg_search. metadata filter
+// scopes results via JSONB @> containment when provided.
 func (r *queryResolver) SearchDocuments(ctx context.Context, query string, docIds []uuid.UUID, metadata map[string]any, limit *int) ([]*types.SearchResult, error) {
 	l := 10
 	if limit != nil {

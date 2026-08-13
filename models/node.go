@@ -6,13 +6,13 @@ import (
 )
 
 // Node is both the gorm model for the nodes table and the in-memory tree
-// structure. Composite PK (DocID, ID) — ID is a DFS counter (1, 2, 3...).
-// ParentID nil = child of synthetic root (ID=0, not stored).
-// The Nodes field is gorm:"-" — assembled in memory.
+// structure. UUID PK (ID) is globally unique. ParentID nil = child of
+// synthetic root (ID=uuid.Nil, not stored). The Nodes field is gorm:"-"
+// — assembled in memory.
 type Node struct {
-	ID       int       `gorm:"primaryKey" json:"node_id"`
-	DocID    uuid.UUID `gorm:"primaryKey;type:uuid" json:"doc_id"`
-	ParentID *int      `gorm:"index" json:"parent_id"`
+	ID       uuid.UUID  `gorm:"primaryKey;type:uuid" json:"id"`
+	DocID    uuid.UUID  `gorm:"index;type:uuid" json:"doc_id"`
+	ParentID *uuid.UUID `gorm:"index;type:uuid" json:"parent_id"`
 
 	Title     string         `json:"title"`
 	PageStart int            `json:"page_start"`
@@ -27,21 +27,8 @@ type Node struct {
 
 func (Node) TableName() string { return "nodes" }
 
-// FindByID returns the descendant node whose ID matches, or nil.
-func (n *Node) FindByID(id int) *Node {
-	if n.ID == id {
-		return n
-	}
-	for i := range n.Nodes {
-		if found := n.Nodes[i].FindByID(id); found != nil {
-			return found
-		}
-	}
-	return nil
-}
-
 // GroupByLevelBottomUp returns non-synthetic nodes grouped by depth, in bottom-up
-// order (deepest level first, root level last). The synthetic root (ID=0)
+// order (deepest level first, root level last). The synthetic root (uuid.Nil)
 // is excluded — every returned node is a real document section. Within each
 // level, nodes are in DFS order for stable processing.
 //
@@ -49,15 +36,15 @@ func (n *Node) FindByID(id int) *Node {
 // parallel, wait, move up one level so parents can see their children's
 // results.
 //
-// Filter is by ID (==0 means synthetic), not by depth, so the function
-// works whether the input root is the synthetic wrapper or an unwrapped
-// real top-level node (AssembleTree unwraps when there is only one).
+// Filter is by ID (== uuid.Nil means synthetic), not by depth, so the
+// function works whether the input root is the synthetic wrapper or an
+// unwrapped real top-level node (AssembleTree unwraps when there is one).
 func (root *Node) GroupByLevelBottomUp() [][]*Node {
 	by_depth := map[int][]*Node{}
 	max_depth := 0
 	var walk func(n *Node, depth int)
 	walk = func(n *Node, depth int) {
-		if n.ID != 0 { // skip synthetic root (ID=0); real nodes always included
+		if n.ID != uuid.Nil { // skip synthetic root; real nodes always included
 			by_depth[depth] = append(by_depth[depth], n)
 		}
 		if depth > max_depth {
@@ -79,7 +66,7 @@ func (root *Node) GroupByLevelBottomUp() [][]*Node {
 }
 
 // FlattenTree converts an in-memory Node tree into flat rows for DB.
-// The synthetic root (ID=0) is NOT included — only its descendants.
+// The synthetic root (uuid.Nil) is NOT included — only its descendants.
 func (root *Node) FlattenTree(docID uuid.UUID) []Node {
 	var rows []Node
 	for i := range root.Nodes {
@@ -88,7 +75,7 @@ func (root *Node) FlattenTree(docID uuid.UUID) []Node {
 	return rows
 }
 
-func (n *Node) flattenNode(docID uuid.UUID, parentID *int, rows *[]Node) {
+func (n *Node) flattenNode(docID uuid.UUID, parentID *uuid.UUID, rows *[]Node) {
 	row := Node{
 		DocID:     docID,
 		ID:        n.ID,
@@ -114,10 +101,10 @@ func (n *Node) flattenNode(docID uuid.UUID, parentID *int, rows *[]Node) {
 // with []Node (value type).
 //
 // Returns the single top-level node directly when there is one. When there
-// are multiple top-level nodes, wraps them in a synthetic root (ID=0) so
-// the return type stays *Node.
+// are multiple top-level nodes, wraps them in a synthetic root (uuid.Nil)
+// so the return type stays *Node.
 func AssembleTree(rows []Node) *Node {
-	children_by_parent := map[int][]Node{}
+	children_by_parent := map[uuid.UUID][]Node{}
 	var top_level []Node
 	for i := range rows {
 		node := rows[i]
@@ -141,5 +128,5 @@ func AssembleTree(rows []Node) *Node {
 	if len(tree) == 1 {
 		return &tree[0]
 	}
-	return &Node{Nodes: tree}
+	return &Node{ID: uuid.Nil, Nodes: tree}
 }

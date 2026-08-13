@@ -4,37 +4,36 @@
 package document_service
 
 import (
+	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/mineru_popo"
 	"github.com/yichozy/passion-index/models"
 )
 
 // ---- Tree mapping (Popo → Node) ----
 
-// ConvertPopoResultToTree converts a Popo build_tree root into a root models.Node
-// (ID=0, synthetic) plus the document's total page count. Visual-typed
-// PopoNodes (image/table/chart/seal) are folded into the parent node's
-// Figures[].
+// ConvertPopoResultToTree converts a Popo build_tree root into a root
+// models.Node (ID=uuid.Nil, synthetic) plus the document's total page
+// count. Visual-typed PopoNodes (image/table/chart/seal) are folded into
+// the parent node's Figures[].
 func ConvertPopoResultToTree(popo_doc *mineru_popo.PopoNode) (*models.Node, int) {
 	if popo_doc == nil {
-		return &models.Node{ID: 0}, 0
+		return &models.Node{ID: uuid.Nil}, 0
 	}
 	page_count := countPages(popo_doc)
-	counter := 0
 	var nodes []models.Node
 	for i := range popo_doc.Children {
 		child := &popo_doc.Children[i]
 		if isVisualType(child.Type) {
 			continue
 		}
-		nodes = append(nodes, convertNode(child, &counter))
+		nodes = append(nodes, convertNode(child))
 	}
-	return &models.Node{ID: 0, Nodes: nodes}, page_count
+	return &models.Node{ID: uuid.Nil, Nodes: nodes}, page_count
 }
 
-func convertNode(popoNode *mineru_popo.PopoNode, counter *int) models.Node {
-	*counter++
+func convertNode(popoNode *mineru_popo.PopoNode) models.Node {
 	n := models.Node{
-		ID:    *counter,
+		ID:    uuid.New(),
 		Title: popoNode.Title,
 		Text:  popoNode.Content,
 	}
@@ -60,7 +59,7 @@ func convertNode(popoNode *mineru_popo.PopoNode, counter *int) models.Node {
 			})
 			continue
 		}
-		n.Nodes = append(n.Nodes, convertNode(child, counter))
+		n.Nodes = append(n.Nodes, convertNode(child))
 	}
 	return n
 }

@@ -64,8 +64,8 @@ type Query struct {
 }
 
 type SearchMatch struct {
-	NodeID int     `json:"node_id"`
-	Score  float64 `json:"score"`
+	NodeID uuid.UUID `json:"node_id"`
+	Score  float64   `json:"score"`
 }
 
 type SearchResult struct {
@@ -76,8 +76,8 @@ type SearchResult struct {
 }
 
 type TreeNode struct {
-	NodeID    int         `json:"node_id"`
-	ParentID  *int        `json:"parent_id,omitempty"`
+	NodeID    uuid.UUID   `json:"node_id"`
+	ParentID  *uuid.UUID  `json:"parent_id,omitempty"`
 	Title     string      `json:"title"`
 	PageStart int         `json:"page_start"`
 	PageEnd   int         `json:"page_end"`

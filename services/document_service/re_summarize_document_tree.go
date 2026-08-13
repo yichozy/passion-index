@@ -115,8 +115,8 @@ func ReSummarizeDocumentTree(ctx context.Context, doc_id uuid.UUID, force bool) 
 	// is an admin operation, not a hot path.
 	for _, level := range levels {
 		for _, node := range level {
-			if err := orm_node.UpdateSummary(ctx, doc_id, node.ID, node.Summary); err != nil {
-				log.Warnf(ctx, "resummarize[%s]: failed to persist node %d: %v", doc_id, node.ID, err)
+			if err := orm_node.UpdateSummary(ctx, node.ID, node.Summary); err != nil {
+				log.Warnf(ctx, "resummarize[%s]: failed to persist node %s: %v", doc_id, node.ID, err)
 			}
 		}
 	}

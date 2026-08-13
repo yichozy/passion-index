@@ -4,7 +4,7 @@
 # Usage:
 #   ./scripts/docs.sh get <doc_id>
 #   ./scripts/docs.sh tree <doc_id> [--raw]
-#   ./scripts/docs.sh node <doc_id> <node_id> [--raw]
+#   ./scripts/docs.sh node <node_id> [--raw]
 #   ./scripts/docs.sh pages <doc_id> <page1> [page2...]
 #   ./scripts/docs.sh search "<query>" [--doc-ids uuid1,uuid2] [--metadata '{"key":"value"}']
 #   ./scripts/docs.sh poll <doc_id> [interval_seconds=5] [max_minutes=10]
@@ -79,17 +79,16 @@ case "$cmd" in
 		;;
 
 	node)
-		doc_id="${1:?usage: node <doc_id> <node_id> [--raw]}"
-		node_id="${2:?usage: node <doc_id> <node_id> [--raw]}"
-		mode="${3:-pretty}"
-		query='{ GetDocumentNodeByNodeID(doc_id: "'"$doc_id"'", node_id: '"$node_id"') { node_id title page_start page_end summary text figures { name page caption } nodes { node_id title summary nodes { node_id title summary } } } }'
+		node_id="${1:?usage: node <node_id> [--raw]}"
+		mode="${2:-pretty}"
+		query='{ GetDocumentNode(node_id: "'"$node_id"'") { node_id title page_start page_end summary text figures { name page caption } nodes { node_id title summary nodes { node_id title summary } } } }'
 		resp=$(send_query "$query"); surface_errors "$resp"
 		if [ "$mode" = "--raw" ]; then
-			echo "$resp" | jq '.data.GetDocumentNodeByNodeID'
+			echo "$resp" | jq '.data.GetDocumentNode'
 			exit 0
 		fi
 		echo "$resp" | jq -r '
-			.data.GetDocumentNodeByNodeID as $n |
+			.data.GetDocumentNode as $n |
 			if $n == null then
 				"(node not found)"
 			else

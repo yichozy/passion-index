@@ -8,10 +8,10 @@ import (
 	"github.com/yichozy/passion-index/models"
 )
 
-// UpdateSummary updates a single node's summary.
-func UpdateSummary(ctx context.Context, doc_id uuid.UUID, node_id int, summary string) error {
+// UpdateSummary updates a single node's summary by UUID.
+func UpdateSummary(ctx context.Context, node_id uuid.UUID, summary string) error {
 	return dao.GetDB().WithContext(ctx).
 		Model(&models.Node{}).
-		Where("doc_id = ? AND id = ?", doc_id, node_id).
+		Where("id = ?", node_id).
 		Update("summary", summary).Error
 }
