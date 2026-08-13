@@ -149,24 +149,59 @@ func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID uuid.
 	return out, nil
 }
 
-// SearchDocuments ranks documents by BM25 via pg_search. metadata filter
-// scopes results via JSONB @> containment when provided.
-func (r *queryResolver) SearchDocuments(ctx context.Context, query string, docIds []uuid.UUID, metadata map[string]any, limit *int) ([]*types.SearchResult, error) {
+// SearchDocuments performs BM25 search over document-level text
+// (filename + title + description). Returns doc-level matches.
+//
+//	folder_id scope:
+//	  recursive=false → documents directly in that folder
+//	  recursive=true  → documents in folder + all descendant folders
+func (r *queryResolver) SearchDocuments(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) ([]*types.DocumentSearchResult, error) {
+	rec := false
+	if recursive != nil {
+		rec = *recursive
+	}
 	l := 10
 	if limit != nil {
 		l = *limit
 	}
-	results, err := document_service.SearchDocuments(ctx, query, docIds, metadata, l)
+	rows, err := orm_document.SearchDocuments(ctx, query, folderID, rec, metadata, l)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]*types.SearchResult, len(results))
-	for i := range results {
-		var sr types.SearchResult
-		if err := utils.CopyObj(results[i], &sr); err != nil {
+	out := make([]*types.DocumentSearchResult, len(rows))
+	for i := range rows {
+		var search_result types.DocumentSearchResult
+		if err := utils.CopyObj(rows[i], &search_result); err != nil {
 			return nil, fmt.Errorf("copy search result: %w", err)
 		}
-		out[i] = &sr
+		out[i] = &search_result
+	}
+	return out, nil
+}
+
+// SearchDocumentNodes performs BM25 search over node content
+// (title + summary + text). Returns node-level matches, each carrying its
+// parent doc's filename for context.
+func (r *queryResolver) SearchDocumentNodes(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) ([]*types.NodeSearchResult, error) {
+	rec := false
+	if recursive != nil {
+		rec = *recursive
+	}
+	l := 20
+	if limit != nil {
+		l = *limit
+	}
+	rows, err := orm_node.SearchNodes(ctx, query, folderID, rec, metadata, l)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*types.NodeSearchResult, len(rows))
+	for i := range rows {
+		var search_result types.NodeSearchResult
+		if err := utils.CopyObj(rows[i], &search_result); err != nil {
+			return nil, fmt.Errorf("copy search result: %w", err)
+		}
+		out[i] = &search_result
 	}
 	return out, nil
 }

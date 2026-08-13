@@ -33,6 +33,15 @@ type DocumentList struct {
 	Total int         `json:"total"`
 }
 
+type DocumentSearchResult struct {
+	DocID       uuid.UUID      `json:"doc_id"`
+	Filename    string         `json:"filename"`
+	Title       *string        `json:"title,omitempty"`
+	Description *string        `json:"description,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	Score       float64        `json:"score"`
+}
+
 type Figure struct {
 	Name    string  `json:"name"`
 	Page    int     `json:"page"`
@@ -62,19 +71,18 @@ type FolderNode struct {
 type Mutation struct {
 }
 
+type NodeSearchResult struct {
+	ID        uuid.UUID `json:"id"`
+	DocID     uuid.UUID `json:"doc_id"`
+	Filename  string    `json:"filename"`
+	Title     string    `json:"title"`
+	Summary   string    `json:"summary"`
+	PageStart int       `json:"page_start"`
+	PageEnd   int       `json:"page_end"`
+	Score     float64   `json:"score"`
+}
+
 type Query struct {
-}
-
-type SearchMatch struct {
-	NodeID uuid.UUID `json:"node_id"`
-	Score  float64   `json:"score"`
-}
-
-type SearchResult struct {
-	DocID    uuid.UUID      `json:"doc_id"`
-	Filename string         `json:"filename"`
-	Score    float64        `json:"score"`
-	Matches  []*SearchMatch `json:"matches"`
 }
 
 type TreeNode struct {

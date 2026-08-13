@@ -51,7 +51,8 @@ Medical  [019fef5f-4044-7a73-a145-8fed6ed49f70]  docs=0 subfolders=2
 ./scripts/docs.sh tree <doc_id> [--raw]
 ./scripts/docs.sh node <node_id> [--raw]
 ./scripts/docs.sh pages <doc_id> <page1> [page2...]
-./scripts/docs.sh search "<query>" [--doc-ids uuid1,uuid2] [--metadata '{"key":"value"}']
+./scripts/docs.sh search "<query>" <folder_id> [--recursive] [--metadata '{"key":"value"}']
+./scripts/docs.sh search-nodes "<query>" <folder_id> [--recursive] [--metadata '{"key":"value"}']
 ./scripts/docs.sh poll <doc_id> [interval_seconds=5] [max_minutes=10]
 ./scripts/docs.sh upload <pdf_path> <folder_id> [metadata_json]
 ./scripts/docs.sh resummarize <doc_id> [--force]
@@ -96,10 +97,24 @@ DOC_ID=$(./scripts/docs.sh upload paper.pdf "$ONCOLOGY" | jq -r '.data.UploadDoc
 ./scripts/folder.sh docs "$ONCOLOGY" --recursive --limit 50
 ```
 
-### Search within specific documents
+### Search documents (doc-level: filename + title + description)
 
 ```bash
-./scripts/docs.sh search "lung cancer" --doc-ids "$DOC_ID1,$DOC_ID2"
+# Just the folder's direct contents
+./scripts/docs.sh search "lung cancer" "$FOLDER_ID"
+
+# Include sub-folders
+./scripts/docs.sh search "lung cancer" "$FOLDER_ID" --recursive
+
+# Filter by metadata (JSONB @> containment)
+./scripts/docs.sh search "lung cancer" "$FOLDER_ID" --metadata '{"indication":["lung cancer"]}'
+```
+
+### Search inside document content (node-level: title + summary + text)
+
+```bash
+# Find which section of which doc covers a topic
+./scripts/docs.sh search-nodes "nivolumab cost effectiveness" "$FOLDER_ID" --recursive
 ```
 
 ### Drill into specific pages of a document

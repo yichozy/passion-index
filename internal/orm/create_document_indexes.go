@@ -8,16 +8,15 @@ import (
 )
 
 // createDocumentIndexes runs SQL that gorm struct tags can't express:
-// - BM25 index on nodes via pg_search (full-text search with proper BM25
-//   ranking: saturation, length normalization, IDF — none of which ts_rank
-//   provides).
+// - BM25 index on nodes via pg_search (node-level content search)
+// - BM25 index on documents via pg_search (document-level meta search:
+//   filename + title + description)
 // - GIN index on documents.metadata for JSONB @> containment filters.
 //
 // The pg_search extension must be enabled first (see migrate.go).
 func createDocumentIndexes(ctx context.Context, db *gorm.DB) {
 	stmts := []string{
-		// BM25 index over the searchable text fields. key_field='id' (UUID PK)
-		// gives paradedb.score() a stable row identifier.
+		// Node-level BM25 — searches inside parsed sections (title/summary/text).
 		//
 		// Syntax note: paradedb 0.25.x requires ((table.*)) as the index input
 		// (single parentheses + bare table name errors with "column does not
@@ -26,6 +25,16 @@ func createDocumentIndexes(ctx context.Context, db *gorm.DB) {
 			USING bm25 ((nodes.*)) WITH (
 				key_field = 'id',
 				text_fields = '{"title": {}, "summary": {}, "text": {}}'
+			)`,
+
+		// Document-level BM25 — searches doc-level text (filename + title +
+		// description). Powers the doc-scope search endpoint. Mirrors
+		// PageIndex's `searchDocuments` tool's matching scope, minus the
+		// LLM re-rank (BM25 alone here).
+		`CREATE INDEX IF NOT EXISTS idx_documents_search ON documents
+			USING bm25 ((documents.*)) WITH (
+				key_field = 'id',
+				text_fields = '{"filename": {}, "title": {}, "description": {}}'
 			)`,
 
 		// jsonb metadata — for @> containment operator on documents

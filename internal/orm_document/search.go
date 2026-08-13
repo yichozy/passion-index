@@ -1,4 +1,4 @@
-package orm_node
+package orm_document
 
 import (
 	"context"
@@ -7,23 +7,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/dao"
-	"github.com/yichozy/passion-index/models"
 )
 
-// NodeWithScore holds a node row plus its search relevance score and the
-// parent document's filename (joined from documents table).
-type NodeWithScore struct {
-	models.Node
-	Filename string  `gorm:"column:filename" json:"filename"`
-	Score    float64 `gorm:"column:score" json:"score"`
+// DocumentWithScore holds the doc-level search-relevant fields plus BM25
+// score. Avoids leaking internal columns (file_key, status, error, ...) into
+// search responses.
+type DocumentWithScore struct {
+	ID          uuid.UUID       `gorm:"column:id" json:"doc_id"`
+	Filename    string          `gorm:"column:filename" json:"filename"`
+	Title       string          `gorm:"column:title" json:"title"`
+	Description string          `gorm:"column:description" json:"description"`
+	Metadata    map[string]any  `gorm:"column:metadata;serializer:json" json:"metadata"`
+	Score       float64         `gorm:"column:score" json:"score"`
 }
 
-// SearchNodes performs BM25 search over node content (title/summary/text)
-// via pg_search. Joins documents to apply folder scope + metadata filters
-// and to fetch filename for context.
-//
-// Soft-deleted rows are excluded (gorm.Raw does not auto-apply the
-// DeletedAt filter, so we add it explicitly).
+// SearchDocuments performs BM25 search over document-level text
+// (filename + title + description) via pg_search. Used to find documents
+// by topic/title/summary rather than by section content.
 //
 //	folder_id scope:
 //	  recursive=false → documents directly in that folder
@@ -31,7 +31,10 @@ type NodeWithScore struct {
 //
 // metadata is optional — when non-empty, documents whose metadata column
 // does not contain all the given key-value pairs are excluded.
-func SearchNodes(ctx context.Context, query string, folder_id uuid.UUID, recursive bool, metadata map[string]any, limit int) ([]NodeWithScore, error) {
+//
+// Soft-deleted rows are excluded (gorm.Raw does not auto-apply the
+// DeletedAt filter, so we add it explicitly).
+func SearchDocuments(ctx context.Context, query string, folder_id uuid.UUID, recursive bool, metadata map[string]any, limit int) ([]DocumentWithScore, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -39,10 +42,9 @@ func SearchNodes(ctx context.Context, query string, folder_id uuid.UUID, recursi
 	var conditions []string
 	var args []interface{}
 
-	conditions = append(conditions, "n @@@ paradedb.parse(?)")
+	conditions = append(conditions, "d @@@ paradedb.parse(?)")
 	args = append(args, query)
 
-	conditions = append(conditions, "n.deleted_at IS NULL")
 	conditions = append(conditions, "d.deleted_at IS NULL")
 
 	if recursive {
@@ -69,16 +71,14 @@ func SearchNodes(ctx context.Context, query string, folder_id uuid.UUID, recursi
 	args = append(args, limit)
 
 	sql := `
-		SELECT n.id, n.doc_id, n.parent_id, n.title, n.summary, n.page_start, n.page_end,
-		       d.filename,
-		       paradedb.score(n) AS score
-		FROM nodes n
-		JOIN documents d ON n.doc_id = d.id
+		SELECT d.id, d.filename, d.title, d.description, d.metadata,
+		       paradedb.score(d) AS score
+		FROM documents d
 		WHERE ` + strings.Join(conditions, " AND ") + `
 		ORDER BY score DESC
 		LIMIT ?`
 
-	var rows []NodeWithScore
+	var rows []DocumentWithScore
 	err := dao.GetDB().WithContext(ctx).Raw(sql, args...).Scan(&rows).Error
 	return rows, err
 }

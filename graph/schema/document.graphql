@@ -54,16 +54,24 @@ type DocumentList {
   total: Int!
 }
 
-type SearchMatch {
-  node_id: UUID!
+type DocumentSearchResult {
+  doc_id: UUID!
+  filename: String!
+  title: String
+  description: String
+  metadata: JSON
   score: Float!
 }
 
-type SearchResult {
+type NodeSearchResult {
+  id: UUID!
   doc_id: UUID!
   filename: String!
+  title: String!
+  summary: String!
+  page_start: Int!
+  page_end: Int!
   score: Float!
-  matches: [SearchMatch!]!
 }
 
 type Query {
@@ -71,7 +79,8 @@ type Query {
   GetDocumentListByFolder(folder_id: UUID!, recursive: Boolean = false, limit: Int = 20, offset: Int = 0): DocumentList!
   GetDocumentNode(node_id: UUID!): TreeNode
   GetDocumentNodesByPages(doc_id: UUID!, pages: [Int!]!): [TreeNode!]!
-  SearchDocuments(query: String!, doc_ids: [UUID!], metadata: JSON, limit: Int = 10): [SearchResult!]!
+  SearchDocuments(query: String!, folder_id: UUID!, recursive: Boolean = false, metadata: JSON, limit: Int = 10): [DocumentSearchResult!]!
+  SearchDocumentNodes(query: String!, folder_id: UUID!, recursive: Boolean = false, metadata: JSON, limit: Int = 20): [NodeSearchResult!]!
 }
 
 type Mutation {

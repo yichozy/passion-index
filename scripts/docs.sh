@@ -6,7 +6,8 @@
 #   ./scripts/docs.sh tree <doc_id> [--raw]
 #   ./scripts/docs.sh node <node_id> [--raw]
 #   ./scripts/docs.sh pages <doc_id> <page1> [page2...]
-#   ./scripts/docs.sh search "<query>" [--doc-ids uuid1,uuid2] [--metadata '{"key":"value"}']
+#   ./scripts/docs.sh search "<query>" <folder_id> [--recursive] [--metadata '{"key":"value"}']
+#   ./scripts/docs.sh search-nodes "<query>" <folder_id> [--recursive] [--metadata '{"key":"value"}']
 #   ./scripts/docs.sh poll <doc_id> [interval_seconds=5] [max_minutes=10]
 #   ./scripts/docs.sh upload <pdf_path> <folder_id> [metadata_json]
 #   ./scripts/docs.sh resummarize <doc_id> [--force]
@@ -14,7 +15,7 @@ set -eu
 BASE="${PASSION_INDEX_URL:-http://localhost:8900}"
 
 cmd="${1:-}"
-[ -z "$cmd" ] && { echo "usage: $0 <get|tree|node|pages|search|poll|upload|resummarize> ..." >&2; exit 1; }
+[ -z "$cmd" ] && { echo "usage: $0 <get|tree|node|pages|search|search-nodes|poll|upload|resummarize> ..." >&2; exit 1; }
 shift
 
 # Send a JSON query and return the response body.
@@ -125,32 +126,26 @@ case "$cmd" in
 		;;
 
 	search)
-		query_str="${1:?usage: search <query> [--doc-ids uuid1,uuid2] [--metadata json]}"
-		shift
-		doc_ids=""
+		# Document-level search: BM25 over filename + title + description.
+		# Finds docs by topic/title/summary, not section content.
+		query_str="${1:?usage: search <query> <folder_id> [--recursive] [--metadata json]}"
+		folder_id="${2:?usage: search <query> <folder_id> [--recursive] [--metadata json]}"
+		shift 2
+		recursive="false"
 		metadata=""
 		while [ $# -gt 0 ]; do
 			case "$1" in
-				--doc-ids) doc_ids="$2"; shift 2 ;;
+				--recursive) recursive="true"; shift ;;
 				--metadata) metadata="$2"; shift 2 ;;
 				*) shift ;;
 			esac
 		done
-		doc_ids_arg=""
-		if [ -n "$doc_ids" ]; then
-			ids=$(echo "$doc_ids" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | paste -sd, -)
-			doc_ids_arg="doc_ids: [$ids],"
-		fi
-		# GraphQL doesn't support inline JSON objects — pass metadata as variable.
 		gql_query='query($metadata: JSON) {
-			SearchDocuments(query: "'"$query_str"'", '"$doc_ids_arg"' metadata: $metadata, limit: 10) {
-				doc_id filename score
-				matches { node_id score }
+			SearchDocuments(query: "'"$query_str"'", folder_id: "'"$folder_id"'", recursive: '"$recursive"', metadata: $metadata, limit: 10) {
+				doc_id filename title description score
 			}
 		}'
 		if [ -n "$metadata" ]; then
-			# Validate metadata is valid JSON before sending — keys must be
-			# double-quoted (e.g. '{"indication":"lung cancer"}', not '{indication:"lung cancer"}').
 			if ! echo "$metadata" | jq -e . >/dev/null 2>&1; then
 				echo "error: --metadata is not valid JSON: $metadata" >&2
 				echo '       hint: JSON requires double-quoted keys, e.g. --metadata '\''{"indication":"lung cancer"}'\''' >&2
@@ -167,7 +162,52 @@ case "$cmd" in
 			else
 				.data.SearchDocuments[] |
 				"📄 \(.filename)  score=\(.score | tostring | .[0:5])  [\(.doc_id)]",
-				(.matches[]? | "   → node \(.node_id) (score=\(.score | tostring | .[0:5]))"),
+				(if (.title // "") != "" then "  title:       \(.title)" else empty end),
+				(if (.description // "") != "" then "  description: \(.description | .[0:120] + (if length > 120 then "..." else "" end))" else empty end),
+				""
+			end
+		'
+		;;
+
+	search-nodes)
+		# Node-level search: BM25 over title + summary + text inside nodes.
+		# Returns matching sections, each with its parent doc's filename.
+		query_str="${1:?usage: search-nodes <query> <folder_id> [--recursive] [--metadata json]}"
+		folder_id="${2:?usage: search-nodes <query> <folder_id> [--recursive] [--metadata json]}"
+		shift 2
+		recursive="false"
+		metadata=""
+		while [ $# -gt 0 ]; do
+			case "$1" in
+				--recursive) recursive="true"; shift ;;
+				--metadata) metadata="$2"; shift 2 ;;
+				*) shift ;;
+			esac
+		done
+		gql_query='query($metadata: JSON) {
+			SearchDocumentNodes(query: "'"$query_str"'", folder_id: "'"$folder_id"'", recursive: '"$recursive"', metadata: $metadata, limit: 10) {
+				id doc_id filename title summary page_start page_end score
+			}
+		}'
+		if [ -n "$metadata" ]; then
+			if ! echo "$metadata" | jq -e . >/dev/null 2>&1; then
+				echo "error: --metadata is not valid JSON: $metadata" >&2
+				echo '       hint: JSON requires double-quoted keys, e.g. --metadata '\''{"indication":"lung cancer"}'\''' >&2
+				exit 1
+			fi
+			resp=$(send_query "$gql_query" "{\"metadata\":$metadata}")
+		else
+			resp=$(send_query "$gql_query" '{"metadata":null}')
+		fi
+		surface_errors "$resp"
+		echo "$resp" | jq -r '
+			if (.data.SearchDocumentNodes | length) == 0 then
+				"(no results)"
+			else
+				.data.SearchDocumentNodes[] |
+				"● \(.title)  score=\(.score | tostring | .[0:5])  [\(.id)]",
+				"  📄 \(.filename)  [\(.doc_id)]  p\(.page_start)-\(.page_end)",
+				(if (.summary // "") != "" then "  ↳ \(.summary | .[0:120] + (if length > 120 then "..." else "" end))" else empty end),
 				""
 			end
 		'

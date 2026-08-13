@@ -60,6 +60,15 @@ type ComplexityRoot struct {
 		Total func(childComplexity int) int
 	}
 
+	DocumentSearchResult struct {
+		Description func(childComplexity int) int
+		DocID       func(childComplexity int) int
+		Filename    func(childComplexity int) int
+		Metadata    func(childComplexity int) int
+		Score       func(childComplexity int) int
+		Title       func(childComplexity int) int
+	}
+
 	Figure struct {
 		Caption func(childComplexity int) int
 		Data    func(childComplexity int) int
@@ -95,6 +104,17 @@ type ComplexityRoot struct {
 		UploadDocument      func(childComplexity int, file graphql.Upload, folderID uuid.UUID, metadata map[string]any) int
 	}
 
+	NodeSearchResult struct {
+		DocID     func(childComplexity int) int
+		Filename  func(childComplexity int) int
+		ID        func(childComplexity int) int
+		PageEnd   func(childComplexity int) int
+		PageStart func(childComplexity int) int
+		Score     func(childComplexity int) int
+		Summary   func(childComplexity int) int
+		Title     func(childComplexity int) int
+	}
+
 	Query struct {
 		GetDocument             func(childComplexity int, id uuid.UUID) int
 		GetDocumentListByFolder func(childComplexity int, folderID uuid.UUID, recursive *bool, limit *int, offset *int) int
@@ -102,19 +122,8 @@ type ComplexityRoot struct {
 		GetDocumentNodesByPages func(childComplexity int, docID uuid.UUID, pages []int) int
 		GetFolder               func(childComplexity int, id uuid.UUID) int
 		GetFolderTree           func(childComplexity int, folderID *uuid.UUID, depth *int) int
-		SearchDocuments         func(childComplexity int, query string, docIds []uuid.UUID, metadata map[string]any, limit *int) int
-	}
-
-	SearchMatch struct {
-		NodeID func(childComplexity int) int
-		Score  func(childComplexity int) int
-	}
-
-	SearchResult struct {
-		DocID    func(childComplexity int) int
-		Filename func(childComplexity int) int
-		Matches  func(childComplexity int) int
-		Score    func(childComplexity int) int
+		SearchDocumentNodes     func(childComplexity int, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) int
+		SearchDocuments         func(childComplexity int, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) int
 	}
 
 	TreeNode struct {
@@ -143,7 +152,8 @@ type QueryResolver interface {
 	GetDocumentListByFolder(ctx context.Context, folderID uuid.UUID, recursive *bool, limit *int, offset *int) (*types.DocumentList, error)
 	GetDocumentNode(ctx context.Context, nodeID uuid.UUID) (*types.TreeNode, error)
 	GetDocumentNodesByPages(ctx context.Context, docID uuid.UUID, pages []int) ([]*types.TreeNode, error)
-	SearchDocuments(ctx context.Context, query string, docIds []uuid.UUID, metadata map[string]any, limit *int) ([]*types.SearchResult, error)
+	SearchDocuments(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) ([]*types.DocumentSearchResult, error)
+	SearchDocumentNodes(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) ([]*types.NodeSearchResult, error)
 	GetFolder(ctx context.Context, id uuid.UUID) (*types.Folder, error)
 	GetFolderTree(ctx context.Context, folderID *uuid.UUID, depth *int) ([]*types.FolderNode, error)
 }
@@ -253,6 +263,43 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.DocumentList.Total(childComplexity), true
+
+	case "DocumentSearchResult.description":
+		if e.ComplexityRoot.DocumentSearchResult.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DocumentSearchResult.Description(childComplexity), true
+	case "DocumentSearchResult.doc_id":
+		if e.ComplexityRoot.DocumentSearchResult.DocID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DocumentSearchResult.DocID(childComplexity), true
+	case "DocumentSearchResult.filename":
+		if e.ComplexityRoot.DocumentSearchResult.Filename == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DocumentSearchResult.Filename(childComplexity), true
+	case "DocumentSearchResult.metadata":
+		if e.ComplexityRoot.DocumentSearchResult.Metadata == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DocumentSearchResult.Metadata(childComplexity), true
+	case "DocumentSearchResult.score":
+		if e.ComplexityRoot.DocumentSearchResult.Score == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DocumentSearchResult.Score(childComplexity), true
+	case "DocumentSearchResult.title":
+		if e.ComplexityRoot.DocumentSearchResult.Title == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DocumentSearchResult.Title(childComplexity), true
 
 	case "Figure.caption":
 		if e.ComplexityRoot.Figure.Caption == nil {
@@ -426,6 +473,55 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Mutation.UploadDocument(childComplexity, args["file"].(graphql.Upload), args["folder_id"].(uuid.UUID), args["metadata"].(map[string]any)), true
 
+	case "NodeSearchResult.doc_id":
+		if e.ComplexityRoot.NodeSearchResult.DocID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NodeSearchResult.DocID(childComplexity), true
+	case "NodeSearchResult.filename":
+		if e.ComplexityRoot.NodeSearchResult.Filename == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NodeSearchResult.Filename(childComplexity), true
+	case "NodeSearchResult.id":
+		if e.ComplexityRoot.NodeSearchResult.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NodeSearchResult.ID(childComplexity), true
+	case "NodeSearchResult.page_end":
+		if e.ComplexityRoot.NodeSearchResult.PageEnd == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NodeSearchResult.PageEnd(childComplexity), true
+	case "NodeSearchResult.page_start":
+		if e.ComplexityRoot.NodeSearchResult.PageStart == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NodeSearchResult.PageStart(childComplexity), true
+	case "NodeSearchResult.score":
+		if e.ComplexityRoot.NodeSearchResult.Score == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NodeSearchResult.Score(childComplexity), true
+	case "NodeSearchResult.summary":
+		if e.ComplexityRoot.NodeSearchResult.Summary == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NodeSearchResult.Summary(childComplexity), true
+	case "NodeSearchResult.title":
+		if e.ComplexityRoot.NodeSearchResult.Title == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NodeSearchResult.Title(childComplexity), true
+
 	case "Query.GetDocument":
 		if e.ComplexityRoot.Query.GetDocument == nil {
 			break
@@ -493,6 +589,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.GetFolderTree(childComplexity, args["folder_id"].(*uuid.UUID), args["depth"].(*int)), true
 
+	case "Query.SearchDocumentNodes":
+		if e.ComplexityRoot.Query.SearchDocumentNodes == nil {
+			break
+		}
+
+		args, err := ec.field_Query_SearchDocumentNodes_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.SearchDocumentNodes(childComplexity, args["query"].(string), args["folder_id"].(uuid.UUID), args["recursive"].(*bool), args["metadata"].(map[string]any), args["limit"].(*int)), true
 	case "Query.SearchDocuments":
 		if e.ComplexityRoot.Query.SearchDocuments == nil {
 			break
@@ -503,45 +610,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.SearchDocuments(childComplexity, args["query"].(string), args["doc_ids"].([]uuid.UUID), args["metadata"].(map[string]any), args["limit"].(*int)), true
-
-	case "SearchMatch.node_id":
-		if e.ComplexityRoot.SearchMatch.NodeID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.SearchMatch.NodeID(childComplexity), true
-	case "SearchMatch.score":
-		if e.ComplexityRoot.SearchMatch.Score == nil {
-			break
-		}
-
-		return e.ComplexityRoot.SearchMatch.Score(childComplexity), true
-
-	case "SearchResult.doc_id":
-		if e.ComplexityRoot.SearchResult.DocID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.SearchResult.DocID(childComplexity), true
-	case "SearchResult.filename":
-		if e.ComplexityRoot.SearchResult.Filename == nil {
-			break
-		}
-
-		return e.ComplexityRoot.SearchResult.Filename(childComplexity), true
-	case "SearchResult.matches":
-		if e.ComplexityRoot.SearchResult.Matches == nil {
-			break
-		}
-
-		return e.ComplexityRoot.SearchResult.Matches(childComplexity), true
-	case "SearchResult.score":
-		if e.ComplexityRoot.SearchResult.Score == nil {
-			break
-		}
-
-		return e.ComplexityRoot.SearchResult.Score(childComplexity), true
+		return e.ComplexityRoot.Query.SearchDocuments(childComplexity, args["query"].(string), args["folder_id"].(uuid.UUID), args["recursive"].(*bool), args["metadata"].(map[string]any), args["limit"].(*int)), true
 
 	case "TreeNode.figures":
 		if e.ComplexityRoot.TreeNode.Figures == nil {
@@ -743,6 +812,24 @@ func (ec *executionContext) childFields_DocumentList(ctx context.Context, field 
 	return nil, fmt.Errorf("no field named %q was found under type DocumentList", field.Name)
 }
 
+func (ec *executionContext) childFields_DocumentSearchResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "doc_id":
+		return ec.fieldContext_DocumentSearchResult_doc_id(ctx, field)
+	case "filename":
+		return ec.fieldContext_DocumentSearchResult_filename(ctx, field)
+	case "title":
+		return ec.fieldContext_DocumentSearchResult_title(ctx, field)
+	case "description":
+		return ec.fieldContext_DocumentSearchResult_description(ctx, field)
+	case "metadata":
+		return ec.fieldContext_DocumentSearchResult_metadata(ctx, field)
+	case "score":
+		return ec.fieldContext_DocumentSearchResult_score(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type DocumentSearchResult", field.Name)
+}
+
 func (ec *executionContext) childFields_Figure(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "name":
@@ -795,28 +882,26 @@ func (ec *executionContext) childFields_FolderNode(ctx context.Context, field gr
 	return nil, fmt.Errorf("no field named %q was found under type FolderNode", field.Name)
 }
 
-func (ec *executionContext) childFields_SearchMatch(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_NodeSearchResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "node_id":
-		return ec.fieldContext_SearchMatch_node_id(ctx, field)
-	case "score":
-		return ec.fieldContext_SearchMatch_score(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type SearchMatch", field.Name)
-}
-
-func (ec *executionContext) childFields_SearchResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
+	case "id":
+		return ec.fieldContext_NodeSearchResult_id(ctx, field)
 	case "doc_id":
-		return ec.fieldContext_SearchResult_doc_id(ctx, field)
+		return ec.fieldContext_NodeSearchResult_doc_id(ctx, field)
 	case "filename":
-		return ec.fieldContext_SearchResult_filename(ctx, field)
+		return ec.fieldContext_NodeSearchResult_filename(ctx, field)
+	case "title":
+		return ec.fieldContext_NodeSearchResult_title(ctx, field)
+	case "summary":
+		return ec.fieldContext_NodeSearchResult_summary(ctx, field)
+	case "page_start":
+		return ec.fieldContext_NodeSearchResult_page_start(ctx, field)
+	case "page_end":
+		return ec.fieldContext_NodeSearchResult_page_end(ctx, field)
 	case "score":
-		return ec.fieldContext_SearchResult_score(ctx, field)
-	case "matches":
-		return ec.fieldContext_SearchResult_matches(ctx, field)
+		return ec.fieldContext_NodeSearchResult_score(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type SearchResult", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type NodeSearchResult", field.Name)
 }
 
 func (ec *executionContext) childFields_TreeNode(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1207,6 +1292,52 @@ func (ec *executionContext) field_Query_GetFolder_args(ctx context.Context, rawA
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_SearchDocumentNodes_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "query",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["query"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "folder_id",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["folder_id"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "recursive",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["recursive"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "metadata",
+		func(ctx context.Context, v any) (map[string]any, error) {
+			return ec.unmarshalOJSON2map(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["metadata"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "limit",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg4
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_SearchDocuments_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1218,30 +1349,38 @@ func (ec *executionContext) field_Query_SearchDocuments_args(ctx context.Context
 		return nil, err
 	}
 	args["query"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "doc_ids",
-		func(ctx context.Context, v any) ([]uuid.UUID, error) {
-			return ec.unmarshalOUUID2ᚕgithubᚗcomᚋgoogleᚋuuidᚐUUIDᚄ(ctx, v)
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "folder_id",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["doc_ids"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "metadata",
+	args["folder_id"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "recursive",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["recursive"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "metadata",
 		func(ctx context.Context, v any) (map[string]any, error) {
 			return ec.unmarshalOJSON2map(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["metadata"] = arg2
-	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "limit",
+	args["metadata"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "limit",
 		func(ctx context.Context, v any) (*int, error) {
 			return ec.unmarshalOInt2ᚖint(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["limit"] = arg3
+	args["limit"] = arg4
 	return args, nil
 }
 
@@ -1693,6 +1832,144 @@ func (ec *executionContext) _DocumentList_total(ctx context.Context, field graph
 }
 func (ec *executionContext) fieldContext_DocumentList_total(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("DocumentList", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _DocumentSearchResult_doc_id(ctx context.Context, field graphql.CollectedField, obj *types.DocumentSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DocumentSearchResult_doc_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DocID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DocumentSearchResult_doc_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DocumentSearchResult", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _DocumentSearchResult_filename(ctx context.Context, field graphql.CollectedField, obj *types.DocumentSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DocumentSearchResult_filename(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Filename, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DocumentSearchResult_filename(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DocumentSearchResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DocumentSearchResult_title(ctx context.Context, field graphql.CollectedField, obj *types.DocumentSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DocumentSearchResult_title(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Title, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DocumentSearchResult_title(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DocumentSearchResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DocumentSearchResult_description(ctx context.Context, field graphql.CollectedField, obj *types.DocumentSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DocumentSearchResult_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DocumentSearchResult_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DocumentSearchResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DocumentSearchResult_metadata(ctx context.Context, field graphql.CollectedField, obj *types.DocumentSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DocumentSearchResult_metadata(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Metadata, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v map[string]any) graphql.Marshaler {
+			return ec.marshalOJSON2map(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DocumentSearchResult_metadata(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DocumentSearchResult", field, false, false, errors.New("field of type JSON does not have child fields"))
+}
+
+func (ec *executionContext) _DocumentSearchResult_score(ctx context.Context, field graphql.CollectedField, obj *types.DocumentSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DocumentSearchResult_score(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Score, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DocumentSearchResult_score(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DocumentSearchResult", field, false, false, errors.New("field of type Float does not have child fields"))
 }
 
 func (ec *executionContext) _Figure_name(ctx context.Context, field graphql.CollectedField, obj *types.Figure) (ret graphql.Marshaler) {
@@ -2359,6 +2636,190 @@ func (ec *executionContext) fieldContext_Mutation_RenameFolder(ctx context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _NodeSearchResult_id(ctx context.Context, field graphql.CollectedField, obj *types.NodeSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NodeSearchResult_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NodeSearchResult_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NodeSearchResult", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _NodeSearchResult_doc_id(ctx context.Context, field graphql.CollectedField, obj *types.NodeSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NodeSearchResult_doc_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DocID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NodeSearchResult_doc_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NodeSearchResult", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _NodeSearchResult_filename(ctx context.Context, field graphql.CollectedField, obj *types.NodeSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NodeSearchResult_filename(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Filename, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NodeSearchResult_filename(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NodeSearchResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _NodeSearchResult_title(ctx context.Context, field graphql.CollectedField, obj *types.NodeSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NodeSearchResult_title(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Title, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NodeSearchResult_title(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NodeSearchResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _NodeSearchResult_summary(ctx context.Context, field graphql.CollectedField, obj *types.NodeSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NodeSearchResult_summary(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Summary, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NodeSearchResult_summary(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NodeSearchResult", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _NodeSearchResult_page_start(ctx context.Context, field graphql.CollectedField, obj *types.NodeSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NodeSearchResult_page_start(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageStart, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NodeSearchResult_page_start(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NodeSearchResult", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _NodeSearchResult_page_end(ctx context.Context, field graphql.CollectedField, obj *types.NodeSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NodeSearchResult_page_end(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageEnd, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NodeSearchResult_page_end(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NodeSearchResult", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _NodeSearchResult_score(ctx context.Context, field graphql.CollectedField, obj *types.NodeSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NodeSearchResult_score(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Score, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NodeSearchResult_score(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NodeSearchResult", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
 func (ec *executionContext) _Query_GetDocument(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2545,11 +3006,11 @@ func (ec *executionContext) _Query_SearchDocuments(ctx context.Context, field gr
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().SearchDocuments(ctx, fc.Args["query"].(string), fc.Args["doc_ids"].([]uuid.UUID), fc.Args["metadata"].(map[string]any), fc.Args["limit"].(*int))
+			return ec.Resolvers.Query().SearchDocuments(ctx, fc.Args["query"].(string), fc.Args["folder_id"].(uuid.UUID), fc.Args["recursive"].(*bool), fc.Args["metadata"].(map[string]any), fc.Args["limit"].(*int))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*types.SearchResult) graphql.Marshaler {
-			return ec.marshalNSearchResult2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchResultᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []*types.DocumentSearchResult) graphql.Marshaler {
+			return ec.marshalNDocumentSearchResult2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐDocumentSearchResultᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -2562,7 +3023,7 @@ func (ec *executionContext) fieldContext_Query_SearchDocuments(ctx context.Conte
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_SearchResult(ctx, field)
+			return ec.childFields_DocumentSearchResult(ctx, field)
 		},
 	}
 	defer func() {
@@ -2573,6 +3034,50 @@ func (ec *executionContext) fieldContext_Query_SearchDocuments(ctx context.Conte
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_SearchDocuments_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_SearchDocumentNodes(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_SearchDocumentNodes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().SearchDocumentNodes(ctx, fc.Args["query"].(string), fc.Args["folder_id"].(uuid.UUID), fc.Args["recursive"].(*bool), fc.Args["metadata"].(map[string]any), fc.Args["limit"].(*int))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*types.NodeSearchResult) graphql.Marshaler {
+			return ec.marshalNNodeSearchResult2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐNodeSearchResultᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_SearchDocumentNodes(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_NodeSearchResult(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_SearchDocumentNodes_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2738,153 +3243,6 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields___Schema(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SearchMatch_node_id(ctx context.Context, field graphql.CollectedField, obj *types.SearchMatch) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SearchMatch_node_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.NodeID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
-			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_SearchMatch_node_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("SearchMatch", field, false, false, errors.New("field of type UUID does not have child fields"))
-}
-
-func (ec *executionContext) _SearchMatch_score(ctx context.Context, field graphql.CollectedField, obj *types.SearchMatch) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SearchMatch_score(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Score, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
-			return ec.marshalNFloat2float64(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_SearchMatch_score(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("SearchMatch", field, false, false, errors.New("field of type Float does not have child fields"))
-}
-
-func (ec *executionContext) _SearchResult_doc_id(ctx context.Context, field graphql.CollectedField, obj *types.SearchResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SearchResult_doc_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.DocID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
-			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_SearchResult_doc_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("SearchResult", field, false, false, errors.New("field of type UUID does not have child fields"))
-}
-
-func (ec *executionContext) _SearchResult_filename(ctx context.Context, field graphql.CollectedField, obj *types.SearchResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SearchResult_filename(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Filename, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_SearchResult_filename(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("SearchResult", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _SearchResult_score(ctx context.Context, field graphql.CollectedField, obj *types.SearchResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SearchResult_score(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Score, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
-			return ec.marshalNFloat2float64(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_SearchResult_score(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("SearchResult", field, false, false, errors.New("field of type Float does not have child fields"))
-}
-
-func (ec *executionContext) _SearchResult_matches(ctx context.Context, field graphql.CollectedField, obj *types.SearchResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SearchResult_matches(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Matches, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*types.SearchMatch) graphql.Marshaler {
-			return ec.marshalNSearchMatch2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchMatchᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_SearchResult_matches(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SearchResult",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_SearchMatch(ctx, field)
 		},
 	}
 	return fc, nil
@@ -4304,6 +4662,61 @@ func (ec *executionContext) _DocumentList(ctx context.Context, sel ast.Selection
 	return out
 }
 
+var documentSearchResultImplementors = []string{"DocumentSearchResult"}
+
+func (ec *executionContext) _DocumentSearchResult(ctx context.Context, sel ast.SelectionSet, obj *types.DocumentSearchResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, documentSearchResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DocumentSearchResult")
+		case "doc_id":
+			out.Values[i] = ec._DocumentSearchResult_doc_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "filename":
+			out.Values[i] = ec._DocumentSearchResult_filename(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "title":
+			out.Values[i] = ec._DocumentSearchResult_title(ctx, field, obj)
+		case "description":
+			out.Values[i] = ec._DocumentSearchResult_description(ctx, field, obj)
+		case "metadata":
+			out.Values[i] = ec._DocumentSearchResult_metadata(ctx, field, obj)
+		case "score":
+			out.Values[i] = ec._DocumentSearchResult_score(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var figureImplementors = []string{"Figure"}
 
 func (ec *executionContext) _Figure(ctx context.Context, sel ast.SelectionSet, obj *types.Figure) graphql.Marshaler {
@@ -4563,6 +4976,80 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 	return out
 }
 
+var nodeSearchResultImplementors = []string{"NodeSearchResult"}
+
+func (ec *executionContext) _NodeSearchResult(ctx context.Context, sel ast.SelectionSet, obj *types.NodeSearchResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, nodeSearchResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NodeSearchResult")
+		case "id":
+			out.Values[i] = ec._NodeSearchResult_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "doc_id":
+			out.Values[i] = ec._NodeSearchResult_doc_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "filename":
+			out.Values[i] = ec._NodeSearchResult_filename(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "title":
+			out.Values[i] = ec._NodeSearchResult_title(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "summary":
+			out.Values[i] = ec._NodeSearchResult_summary(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "page_start":
+			out.Values[i] = ec._NodeSearchResult_page_start(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "page_end":
+			out.Values[i] = ec._NodeSearchResult_page_end(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "score":
+			out.Values[i] = ec._NodeSearchResult_score(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var queryImplementors = []string{"Query"}
 
 func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -4686,6 +5173,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "SearchDocumentNodes":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_SearchDocumentNodes(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "GetFolder":
 			field := field
 
@@ -4735,104 +5244,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
-
-	for label, dfs := range deferred {
-		ec.ProcessDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var searchMatchImplementors = []string{"SearchMatch"}
-
-func (ec *executionContext) _SearchMatch(ctx context.Context, sel ast.SelectionSet, obj *types.SearchMatch) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, searchMatchImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("SearchMatch")
-		case "node_id":
-			out.Values[i] = ec._SearchMatch_node_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "score":
-			out.Values[i] = ec._SearchMatch_score(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
-
-	for label, dfs := range deferred {
-		ec.ProcessDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var searchResultImplementors = []string{"SearchResult"}
-
-func (ec *executionContext) _SearchResult(ctx context.Context, sel ast.SelectionSet, obj *types.SearchResult) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, searchResultImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("SearchResult")
-		case "doc_id":
-			out.Values[i] = ec._SearchResult_doc_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "filename":
-			out.Values[i] = ec._SearchResult_filename(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "score":
-			out.Values[i] = ec._SearchResult_score(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "matches":
-			out.Values[i] = ec._SearchResult_matches(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5334,6 +5745,32 @@ func (ec *executionContext) marshalNDocumentList2ᚖgithubᚗcomᚋyichozyᚋpas
 	return ec._DocumentList(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNDocumentSearchResult2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐDocumentSearchResultᚄ(ctx context.Context, sel ast.SelectionSet, v []*types.DocumentSearchResult) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNDocumentSearchResult2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐDocumentSearchResult(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNDocumentSearchResult2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐDocumentSearchResult(ctx context.Context, sel ast.SelectionSet, v *types.DocumentSearchResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._DocumentSearchResult(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNFigure2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFigureᚄ(ctx context.Context, sel ast.SelectionSet, v []*types.Figure) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
@@ -5462,11 +5899,11 @@ func (ec *executionContext) marshalNInt2ᚕintᚄ(ctx context.Context, sel ast.S
 	return ret
 }
 
-func (ec *executionContext) marshalNSearchMatch2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchMatchᚄ(ctx context.Context, sel ast.SelectionSet, v []*types.SearchMatch) graphql.Marshaler {
+func (ec *executionContext) marshalNNodeSearchResult2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐNodeSearchResultᚄ(ctx context.Context, sel ast.SelectionSet, v []*types.NodeSearchResult) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNSearchMatch2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchMatch(ctx, sel, v[i])
+		return ec.marshalNNodeSearchResult2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐNodeSearchResult(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -5478,40 +5915,14 @@ func (ec *executionContext) marshalNSearchMatch2ᚕᚖgithubᚗcomᚋyichozyᚋp
 	return ret
 }
 
-func (ec *executionContext) marshalNSearchMatch2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchMatch(ctx context.Context, sel ast.SelectionSet, v *types.SearchMatch) graphql.Marshaler {
+func (ec *executionContext) marshalNNodeSearchResult2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐNodeSearchResult(ctx context.Context, sel ast.SelectionSet, v *types.NodeSearchResult) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._SearchMatch(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNSearchResult2ᚕᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchResultᚄ(ctx context.Context, sel ast.SelectionSet, v []*types.SearchResult) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNSearchResult2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchResult(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNSearchResult2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchResult(ctx context.Context, sel ast.SelectionSet, v *types.SearchResult) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._SearchResult(ctx, sel, v)
+	return ec._NodeSearchResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -5848,42 +6259,6 @@ func (ec *executionContext) marshalOTreeNode2ᚖgithubᚗcomᚋyichozyᚋpassion
 		return graphql.Null
 	}
 	return ec._TreeNode(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalOUUID2ᚕgithubᚗcomᚋgoogleᚋuuidᚐUUIDᚄ(ctx context.Context, v any) ([]uuid.UUID, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var vSlice []any
-	vSlice = graphql.CoerceList(v)
-	var err error
-	res := make([]uuid.UUID, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) marshalOUUID2ᚕgithubᚗcomᚋgoogleᚋuuidᚐUUIDᚄ(ctx context.Context, sel ast.SelectionSet, v []uuid.UUID) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	for i := range v {
-		ret[i] = ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, sel, v[i])
-	}
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
 }
 
 func (ec *executionContext) unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx context.Context, v any) (*uuid.UUID, error) {
