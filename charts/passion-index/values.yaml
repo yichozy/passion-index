@@ -28,19 +28,24 @@ server:
   leafModel: HUOSHANG-doubao-seed-evolving
   leafFallbackModel: deepseek-v4-flash
 
+# Database connection — non-secret params set directly here. The Secret
+# referenced below only carries credentials (username/password), produced
+# by the bundled charts/paradedb chart or any compatible external Secret.
+database:
+  host: paradedb         # paradedb chart's Service name (release=paradedb → fullname=paradedb)
+  port: 5432
+  database: postgres     # must match paradedb's database.name (empty → postgres)
+
 # Sensitive values + service connection info. Create these Secrets out-of-band.
 # The chart maps each key explicitly into container env vars. Leave
 # existingSecret empty to skip mounting that source.
 secrets:
-  # PostgreSQL — secret keeps legacy PASSION_INDEX_POSTGRES_* keys; deployment
-  # maps them into runtime POSTGRES_* env vars for hopebox/dao.
+  # PostgreSQL — Secret carries credentials only. Connection target
+  # (host/port/database) is configured in the `database` block above.
   database:
-    existingSecret: "postgres"
-    hostKey: PASSION_INDEX_POSTGRES_HOST
-    portKey: PASSION_INDEX_POSTGRES_PORT
-    usernameKey: PASSION_INDEX_POSTGRES_USERNAME
-    passwordKey: PASSION_INDEX_POSTGRES_PASSWORD
-    databaseKey: PASSION_INDEX_POSTGRES_DB
+    existingSecret: "paradedb-pg"
+    usernameKey: username
+    passwordKey: password
   # Aliyun OSS — bucket/endpoint live with credentials so a storage migration
   # (switch bucket / region) is one Secret edit, not a ConfigMap+Secret dance.
   oss:

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: paradedb
+description: Standalone ParadeDB (Postgres 18 + pg_search) for passion-index.
+type: application
+version: 0.1.0
+appVersion: "0.25.2"

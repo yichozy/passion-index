@@ -29,11 +29,13 @@ func Search(ctx context.Context, query string, doc_ids []uuid.UUID, metadata map
 		limit = 10
 	}
 
-	ts_query := "plainto_tsquery('english', ?)"
+	// Bind query once via CTE — referenced twice (score + WHERE) without
+	// having to pass it twice in args. Also avoids textual-`?`-order bugs
+	// since GORM binds placeholders in SQL text order.
 	args := []interface{}{query}
 
 	var conditions []string
-	conditions = append(conditions, "n.search_vector @@ "+ts_query)
+	conditions = append(conditions, "n.search_vector @@ q.tsq")
 
 	if len(doc_ids) > 0 {
 		placeholders := make([]string, len(doc_ids))
@@ -50,14 +52,16 @@ func Search(ctx context.Context, query string, doc_ids []uuid.UUID, metadata map
 		args = append(args, string(metadataJSON))
 	}
 
-	args = append(args, query, limit)
+	args = append(args, limit)
 
 	sql := `
+		WITH q AS (SELECT plainto_tsquery('english', ?) AS tsq)
 		SELECT n.doc_id, n.id, n.parent_id, n.title, n.summary, n.page_start, n.page_end,
 		       d.filename,
-		       ts_rank_cd(n.search_vector, ` + ts_query + `) AS score
+		       ts_rank_cd(n.search_vector, q.tsq) AS score
 		FROM nodes n
 		JOIN documents d ON n.doc_id = d.id
+		CROSS JOIN q
 		WHERE ` + strings.Join(conditions, " AND ") + `
 		ORDER BY score DESC
 		LIMIT ?`

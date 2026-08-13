@@ -21,12 +21,15 @@ shift
 # Optional second arg: variables JSON object (for queries that need typed
 # variables like JSON scalars that can't be inlined in GraphQL).
 send_query() {
-	local query="$1"
-	local req
+	local query="$1" req
 	if [ -n "${2:-}" ]; then
 		req=$(jq -n --arg q "$query" --argjson v "$2" '{query: $q, variables: $v}')
 	else
 		req=$(jq -n --arg q "$query" '{query: $q}')
+	fi
+	if [ -z "$req" ]; then
+		echo "error: failed to build request body (jq failed — likely invalid JSON variables)" >&2
+		exit 1
 	fi
 	curl -s "$BASE/query" -H 'content-type: application/json' --data-binary "$req"
 }
@@ -147,6 +150,13 @@ case "$cmd" in
 			}
 		}'
 		if [ -n "$metadata" ]; then
+			# Validate metadata is valid JSON before sending — keys must be
+			# double-quoted (e.g. '{"indication":"lung cancer"}', not '{indication:"lung cancer"}').
+			if ! echo "$metadata" | jq -e . >/dev/null 2>&1; then
+				echo "error: --metadata is not valid JSON: $metadata" >&2
+				echo '       hint: JSON requires double-quoted keys, e.g. --metadata '\''{"indication":"lung cancer"}'\''' >&2
+				exit 1
+			fi
 			resp=$(send_query "$gql_query" "{\"metadata\":$metadata}")
 		else
 			resp=$(send_query "$gql_query" '{"metadata":null}')

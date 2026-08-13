@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "paradedb.fullname" . }}
+  labels:
+    {{- include "paradedb.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "paradedb.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "paradedb.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "paradedb.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: paradedb
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: {{ include "paradedb.user" . | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "paradedb.secretName" . }}
+                  key: password
+            - name: POSTGRES_DB
+              value: {{ include "paradedb.database" . | quote }}
+          volumeMounts:
+            # PG 18+ images place data in /var/lib/postgresql/<major>/docker/,
+            # so we mount the parent directory — not /var/lib/postgresql/data.
+            # See https://github.com/docker-library/postgres/pull/1259
+            - name: data
+              mountPath: /var/lib/postgresql
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ include "paradedb.user" . | quote }}
+                - -d
+                - {{ include "paradedb.database" . | quote }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ include "paradedb.user" . | quote }}
+                - -d
+                - {{ include "paradedb.database" . | quote }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.storage.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}

@@ -1,0 +1,52 @@
+# Default values for the standalone ParadeDB chart.
+#
+# Deploys a single Postgres 18 pod with pg_search (and friends) preinstalled
+# via the paradedb/paradedb image. Outputs a Secret with generic key names
+# (host / port / username / password / database) that any consumer chart
+# can read. Project-agnostic — no passion-index-specific defaults.
+
+image:
+  repository: paradedb/paradedb
+  tag: "0.25.2"
+  pullPolicy: IfNotPresent
+
+# Database + owner created on first initdb. The owner name doubles as the
+# login role (POSTGRES_USER). Once initdb has run on a live PVC, changing
+# these values requires deleting the PVC — initdb will not run again.
+#
+# Both empty by default → mirrors the postgres image defaults:
+#   user     → postgres
+#   database → whatever user resolves to
+database:
+  name: ""
+  user: ""
+  password: ""           # empty → chart auto-generates a 32-char random password
+
+storage:
+  size: 40Gi
+  storageClass: ""       # cluster default if empty
+
+# Single-instance Postgres on a small workload. Bump these once you know
+# the working set; 1Gi is a safe floor for tests.
+resources:
+  requests:
+    cpu: 0
+    memory: 0
+  limits:
+    cpu: 8000m
+    memory: 12Gi
+
+# Secret produced by this chart. Contains only credentials (username,
+# password). Non-secret connection info (host/port/database) is the
+# consumer's responsibility — it sets those in its own values.
+secret:
+  name: paradedb-pg
+  # Override to use an existing Secret instead of letting this chart create
+  # one. When non-empty, secret.name is ignored and database.password is
+  # not used — the existing Secret must provide the keys `username` and
+  # `password`.
+  existingSecret: ""
+
+# Standard helm overrides. Don't change unless you know why.
+fullnameOverride: ""
+nameOverride: ""

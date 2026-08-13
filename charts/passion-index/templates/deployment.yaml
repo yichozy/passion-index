@@ -36,15 +36,11 @@ spec:
               value: {{ .Values.server.leafFallbackModel | quote }}
             {{- if .Values.secrets.database.existingSecret }}
             - name: POSTGRES_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secrets.database.existingSecret }}
-                  key: {{ .Values.secrets.database.hostKey }}
+              value: {{ .Values.database.host | quote }}
             - name: POSTGRES_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secrets.database.existingSecret }}
-                  key: {{ .Values.secrets.database.portKey }}
+              value: {{ .Values.database.port | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.database.database | quote }}
             - name: POSTGRES_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -55,11 +51,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secrets.database.existingSecret }}
                   key: {{ .Values.secrets.database.passwordKey }}
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secrets.database.existingSecret }}
-                  key: {{ .Values.secrets.database.databaseKey }}
             {{- end }}
             {{- if .Values.secrets.oss.existingSecret }}
             - name: ALIYUN_OSS_ACCESS_KEY
