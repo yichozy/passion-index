@@ -8,7 +8,11 @@ on:
 env:
   REGISTRY_NAMESPACE: knewta
   SERVICE_NAME: passion-index
+  CONTAINER: passion-index
+  NAMESPACE: yi-dev
   VERSION: ${{ github.ref_name }}
+  K8S_CONTEXT: sg
+  IMG_ALIYUN_REGISTRY_VPC: ${{ vars.ALIYUN_REGISTRY_SG_VPC }}
   IMG_ALIYUN_REGISTRY: ${{ vars.ALIYUN_REGISTRY_SG }}
 
 jobs:
@@ -16,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check env variable
-        run: echo "VERSION=${{ env.VERSION }} SERVICE_NAME=${{ env.SERVICE_NAME }}"
+        run: echo "K8S_CONTEXT=${{ env.K8S_CONTEXT }} VERSION=${{ env.VERSION }} SERVICE_NAME=${{ env.SERVICE_NAME }}"
 
       - uses: actions/checkout@v3
 
@@ -28,3 +32,26 @@ jobs:
 
       - name: Push the Docker image
         run: docker push ${{ env.IMG_ALIYUN_REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/${{ env.SERVICE_NAME }}:${{ env.VERSION }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Deploy via Helm
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        working-directory: ./charts
+        run: |
+          mkdir -p $HOME/.kube
+          echo "$KUBE_CONFIG" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+          helm upgrade -n ${{ env.NAMESPACE }} passion-index passion-index \
+            --kube-context ${{ env.K8S_CONTEXT }} \
+            --set image.tag=${{ env.VERSION }} \
+            --wait \
+            --timeout 5m
