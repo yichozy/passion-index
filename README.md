@@ -67,10 +67,10 @@ When `ENV != prod`, the app automatically loads `.env`. Copy [`.env.example`](.e
 - `MINERU_POPO_BASE_URL`, `MINERU_POPO_TOKEN`
 
 **LLM**
-- `DEEP_SEEK_API_KEY`, `HUO_SHANG_ARK_API_KEY`
+- `DEEP_SEEK_API_KEY`, `HUO_SHANG_PLAN_API_KEY`
 - `PADDLE_OCR_KEY` — required for DeepSeek to "see" figure images (PaddleOCR converts them to text)
 - `PASSION_INDEX_LEAF_MODEL` — primary model for leaf summaries (default: `deepseek-v4-flash`)
-- `PASSION_INDEX_LEAF_FALLBACK_MODEL` — fallback model (default: `HUOSHANG-doubao-seed-evolving`)
+- `PASSION_INDEX_LEAF_FALLBACK_MODEL` — fallback model (default: `HUOSHANGPLAN-doubao-seed-evolving`)
 
 ### Make commands
 
@@ -170,7 +170,7 @@ Create these Secrets before deploying (chart does not manage them):
 | `mineru-private` | `MINERU_PRIVATE_BASE_URL`, `MINERU_POPO_BASE_URL`, `MINERU_PRIVATE_TOKEN`, `MINERU_POPO_TOKEN` |
 | `paddle-orc` | `PADDLE_OCR_KEY` |
 | `deepseek` | `DEEP_SEEK_API_KEY` |
-| `huoshang` | `HUO_SHANG_ARK_API_KEY` |
+| `huoshang` | `HUO_SHANG_PLAN_API_KEY` |
 
 The chart maps each key explicitly via `secretKeyRef` (no `envFrom`).
 

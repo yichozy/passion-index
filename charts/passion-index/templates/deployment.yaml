@@ -111,7 +111,7 @@ spec:
                   key: {{ .Values.secrets.deepseek.apiKeyKey }}
             {{- end }}
             {{- if .Values.secrets.huoshang.existingSecret }}
-            - name: HUO_SHANG_ARK_API_KEY
+            - name: HUO_SHANG_PLAN_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.secrets.huoshang.existingSecret }}

@@ -25,7 +25,7 @@ server:
   # gorm SQL logging toggle (read by hopebox/dao).
   silentLog: "false"
   # LLM model selection for leaf-node summaries. Leave empty to use code defaults.
-  leafModel: HUOSHANG-doubao-seed-evolving
+  leafModel: HUOSHANGPLAN-doubao-seed-evolving
   leafFallbackModel: deepseek-v4-flash
 
 # Database connection — non-secret params set directly here. The Secret
@@ -69,7 +69,7 @@ secrets:
     apiKeyKey: DEEP_SEEK_API_KEY
   huoshang:
     existingSecret: "huoshang"
-    apiKeyKey: HUO_SHANG_ARK_API_KEY
+    apiKeyKey: HUO_SHANG_PLAN_API_KEY
 
 
 # Resource requests/limits. Pipeline is async goroutines; memory headroom
