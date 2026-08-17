@@ -8,10 +8,10 @@ import (
 )
 
 // createDocumentIndexes runs SQL that gorm struct tags can't express:
-// - BM25 index on nodes via pg_search (node-level content search)
-// - BM25 index on documents via pg_search (document-level meta search:
-//   filename + title + description)
-// - GIN index on documents.metadata for JSONB @> containment filters.
+//   - BM25 index on nodes via pg_search (node-level content search)
+//   - BM25 index on documents via pg_search (document-level meta search:
+//     filename + title + description)
+//   - GIN index on documents.metadata for JSONB @> containment filters.
 //
 // The pg_search extension must be enabled first (see migrate.go).
 func createDocumentIndexes(ctx context.Context, db *gorm.DB) {

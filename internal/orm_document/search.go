@@ -9,16 +9,16 @@ import (
 	"github.com/yichozy/hopebox/dao"
 )
 
-// DocumentWithScore holds the doc-level search-relevant fields plus BM25
-// score. Avoids leaking internal columns (file_key, status, error, ...) into
-// search responses.
+// DocumentWithScore holds the doc-level search-relevant fields plus the
+// BM25 score. Avoids leaking internal columns (file_key, status,
+// error, ...) into search responses.
 type DocumentWithScore struct {
-	ID          uuid.UUID       `gorm:"column:id" json:"doc_id"`
-	Filename    string          `gorm:"column:filename" json:"filename"`
-	Title       string          `gorm:"column:title" json:"title"`
-	Description string          `gorm:"column:description" json:"description"`
-	Metadata    map[string]any  `gorm:"column:metadata;serializer:json" json:"metadata"`
-	Score       float64         `gorm:"column:score" json:"score"`
+	ID          uuid.UUID      `gorm:"column:id" json:"doc_id"`
+	Filename    string         `gorm:"column:filename" json:"filename"`
+	Title       string         `gorm:"column:title" json:"title"`
+	Description string         `gorm:"column:description" json:"description"`
+	Metadata    map[string]any `gorm:"column:metadata;serializer:json" json:"metadata"`
+	Score       float64        `gorm:"column:score" json:"score"`
 }
 
 // SearchDocuments performs BM25 search over document-level text

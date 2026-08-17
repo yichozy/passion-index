@@ -65,6 +65,28 @@ func (root *Node) GroupByLevelBottomUp() [][]*Node {
 	return levels
 }
 
+// MaxDepth returns the deepest leaf depth (root = depth 0). Beam search
+// uses it as the upper bound on traversal turns. +1 ensures the loop has
+// a turn available at leaf level even though leaves never re-enter the
+// frontier. Returns 0 when the tree has no children.
+func (root *Node) MaxDepth() int {
+	if root == nil || len(root.Nodes) == 0 {
+		return 0
+	}
+	max_depth := 0
+	var walk func(n *Node, depth int)
+	walk = func(n *Node, depth int) {
+		if depth > max_depth {
+			max_depth = depth
+		}
+		for i := range n.Nodes {
+			walk(&n.Nodes[i], depth+1)
+		}
+	}
+	walk(root, 0)
+	return max_depth + 1
+}
+
 // FlattenTree converts an in-memory Node tree into flat rows for DB.
 // The synthetic root (uuid.Nil) is NOT included — only its descendants.
 func (root *Node) FlattenTree(docID uuid.UUID) []Node {

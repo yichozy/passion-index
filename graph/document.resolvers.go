@@ -181,7 +181,9 @@ func (r *queryResolver) SearchDocuments(ctx context.Context, query string, folde
 
 // SearchDocumentNodes performs BM25 search over node content
 // (title + summary + text). Returns node-level matches, each carrying its
-// parent doc's filename for context.
+// parent doc's filename for context. (Semantic node retrieval lives in
+// document_search_service.SearchDocumentNodes — service layer only, no
+// GraphQL exposure.)
 func (r *queryResolver) SearchDocumentNodes(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) ([]*types.NodeSearchResult, error) {
 	rec := false
 	if recursive != nil {
