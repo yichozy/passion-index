@@ -51,7 +51,7 @@ Medical  [019fef5f-4044-7a73-a145-8fed6ed49f70]  docs=0 subfolders=2
 ./scripts/docs.sh tree <doc_id> [--raw]
 ./scripts/docs.sh node <node_id> [--raw]
 ./scripts/docs.sh pages <doc_id> <page1> [page2...]
-./scripts/docs.sh search "<query>" <folder_id> [--recursive] [--metadata '{"key":"value"}']
+./scripts/docs.sh search "<query>" <folder_id> [--recursive] [--keyword] [--metadata '{"key":"value"}']
 ./scripts/docs.sh search-nodes "<query>" <folder_id> [--recursive] [--metadata '{"key":"value"}']
 ./scripts/docs.sh poll <doc_id> [interval_seconds=5] [max_minutes=10]
 ./scripts/docs.sh upload <pdf_path> <folder_id> [metadata_json]
@@ -97,7 +97,11 @@ DOC_ID=$(./scripts/docs.sh upload paper.pdf "$ONCOLOGY" | jq -r '.data.UploadDoc
 ./scripts/folder.sh docs "$ONCOLOGY" --recursive --limit 50
 ```
 
-### Search documents (doc-level: filename + title + description)
+### Search documents (doc-level)
+
+Default SEMANTIC — vector recall over node embeddings + DocScore; matches
+by meaning (e.g. "Opdivo" finds docs that only say "nivolumab"). Requires
+documents that went through the upload pipeline's EMBEDDING step:
 
 ```bash
 # Just the folder's direct contents
@@ -108,6 +112,13 @@ DOC_ID=$(./scripts/docs.sh upload paper.pdf "$ONCOLOGY" | jq -r '.data.UploadDoc
 
 # Filter by metadata (JSONB @> containment)
 ./scripts/docs.sh search "lung cancer" "$FOLDER_ID" --metadata '{"indication":["lung cancer"]}'
+```
+
+`--keyword` switches to BM25 over filename + title + description —
+literal terms only, no embeddings needed:
+
+```bash
+./scripts/docs.sh search "nivolumab" "$FOLDER_ID" --keyword
 ```
 
 ### Search inside document content (node-level: title + summary + text)

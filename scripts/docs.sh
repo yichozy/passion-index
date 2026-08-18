@@ -126,22 +126,27 @@ case "$cmd" in
 		;;
 
 	search)
-		# Document-level search: BM25 over filename + title + description.
-		# Finds docs by topic/title/summary, not section content.
-		query_str="${1:?usage: search <query> <folder_id> [--recursive] [--metadata json]}"
-		folder_id="${2:?usage: search <query> <folder_id> [--recursive] [--metadata json]}"
+		# Document-level search. Default SEMANTIC: vector recall over node
+		# embeddings + DocScore — matches by meaning (needs the upload
+		# pipeline's EMBEDDING step). --keyword: BM25 over filename +
+		# title + description — literal terms only, works without
+		# embeddings.
+		query_str="${1:?usage: search <query> <folder_id> [--recursive] [--keyword] [--metadata json]}"
+		folder_id="${2:?usage: search <query> <folder_id> [--recursive] [--keyword] [--metadata json]}"
 		shift 2
 		recursive="false"
 		metadata=""
+		mode="SEMANTIC"
 		while [ $# -gt 0 ]; do
 			case "$1" in
 				--recursive) recursive="true"; shift ;;
 				--metadata) metadata="$2"; shift 2 ;;
+				--keyword) mode="KEYWORD"; shift ;;
 				*) shift ;;
 			esac
 		done
 		gql_query='query($metadata: JSON) {
-			SearchDocuments(query: "'"$query_str"'", folder_id: "'"$folder_id"'", recursive: '"$recursive"', metadata: $metadata, limit: 10) {
+			SearchDocuments(query: "'"$query_str"'", folder_id: "'"$folder_id"'", recursive: '"$recursive"', metadata: $metadata, mode: '"$mode"', limit: 10) {
 				doc_id filename title description score
 			}
 		}'
