@@ -22,12 +22,14 @@ type Document struct {
 }
 
 // Document status constants — status doubles as the current pipeline step.
-// Flow: PENDING → OCR → STRUCTURING → SUMMARY → DONE (or FAILED at any step).
+// Flow: PENDING → OCR → STRUCTURING → SUMMARY → EMBEDDING → DONE (or
+// FAILED at any step).
 const (
 	StatusPending     = "PENDING"
 	StatusOCR         = "OCR"
 	StatusStructuring = "STRUCTURING"
 	StatusSummary     = "SUMMARY"
+	StatusEmbedding   = "EMBEDDING"
 	StatusDone        = "DONE"
 	StatusFailed      = "FAILED"
 )

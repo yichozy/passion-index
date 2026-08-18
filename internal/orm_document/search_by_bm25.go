@@ -21,7 +21,7 @@ type DocumentWithScore struct {
 	Score       float64        `gorm:"column:score" json:"score"`
 }
 
-// SearchDocuments performs BM25 search over document-level text
+// SearchDocumentsBm25 performs BM25 search over document-level text
 // (filename + title + description) via pg_search. Used to find documents
 // by topic/title/summary rather than by section content.
 //
@@ -34,7 +34,7 @@ type DocumentWithScore struct {
 //
 // Soft-deleted rows are excluded (gorm.Raw does not auto-apply the
 // DeletedAt filter, so we add it explicitly).
-func SearchDocuments(ctx context.Context, query string, folder_id uuid.UUID, recursive bool, metadata map[string]any, limit int) ([]DocumentWithScore, error) {
+func SearchDocumentsBm25(ctx context.Context, query string, folder_id uuid.UUID, recursive bool, metadata map[string]any, limit int) ([]DocumentWithScore, error) {
 	if limit <= 0 {
 		limit = 10
 	}

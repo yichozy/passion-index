@@ -2,8 +2,10 @@ package orm
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/yichozy/hopebox/log"
+	"github.com/yichozy/passion-index/models"
 	"gorm.io/gorm"
 )
 
@@ -12,8 +14,10 @@ import (
 //   - BM25 index on documents via pg_search (document-level meta search:
 //     filename + title + description)
 //   - GIN index on documents.metadata for JSONB @> containment filters.
+//   - pgvector embedding column + HNSW index on nodes (semantic recall).
 //
-// The pg_search extension must be enabled first (see migrate.go).
+// The pg_search and vector extensions must be enabled first (see
+// migrate.go).
 func createDocumentIndexes(ctx context.Context, db *gorm.DB) {
 	stmts := []string{
 		// Node-level BM25 — searches inside parsed sections (title/summary/text).
@@ -39,6 +43,16 @@ func createDocumentIndexes(ctx context.Context, db *gorm.DB) {
 
 		// jsonb metadata — for @> containment operator on documents
 		`CREATE INDEX IF NOT EXISTS idx_documents_metadata ON documents USING GIN (metadata)`,
+
+		// Semantic node embeddings (title + text[:1000], set by the upload
+		// pipeline's EMBEDDING step). The fixed dimension must match the
+		// fastembed service's model; switching models requires dropping
+		// the column and re-embedding.
+		`ALTER TABLE nodes ADD COLUMN IF NOT EXISTS embedding vector(` + strconv.Itoa(models.EmbeddingDim) + `)`,
+
+		// HNSW (cosine) — powers ORDER BY embedding <=> query.
+		`CREATE INDEX IF NOT EXISTS idx_nodes_embedding ON nodes
+			USING hnsw (embedding vector_cosine_ops)`,
 	}
 
 	for _, sql := range stmts {

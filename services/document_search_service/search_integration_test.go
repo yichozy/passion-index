@@ -23,10 +23,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/dao"
 	"github.com/yichozy/hopebox/env"
+	"github.com/yichozy/hopebox/fastembed"
 	hopelog "github.com/yichozy/hopebox/log"
 	"github.com/yichozy/passion-index/internal/orm_document"
 	"github.com/yichozy/passion-index/internal/orm_node"
 	"github.com/yichozy/passion-index/models"
+	"github.com/yichozy/passion-index/services/document_service"
 )
 
 // Seed documents (must stay ingested in the local DB — the benchmark docs).
@@ -282,7 +284,7 @@ func TestSearchNodes_BM25(t *testing.T) {
 	if doc.FolderID == nil || *doc.FolderID == uuid.Nil {
 		t.Fatal("DOC0 has no folder")
 	}
-	rows, err := orm_node.SearchNodes(context.Background(),
+	rows, err := orm_node.SearchNodesByBm25(context.Background(),
 		"markov model", *doc.FolderID, true, nil, 5)
 	if err != nil {
 		t.Fatalf("SearchNodes bm25: %v", err)
@@ -291,4 +293,112 @@ func TestSearchNodes_BM25(t *testing.T) {
 		t.Fatal("no BM25 results")
 	}
 	t.Logf("top: %q score=%.4f (of %d)", rows[0].Title, rows[0].Score, len(rows))
+}
+
+// require_fastembed skips when the embedding service is not configured or
+// unreachable (it's a locally-deployed service, not always running).
+func require_fastembed(t *testing.T) string {
+	t.Helper()
+	url := os.Getenv("FASTEMBED_URL")
+	if url == "" {
+		t.Skip("FASTEMBED_URL not configured")
+	}
+	if _, err := fastembed.NewClient(url).TextEmbedding(context.Background(), []string{"ping"}); err != nil {
+		t.Skipf("fastembed unreachable: %v", err)
+	}
+	return url
+}
+
+// doc0_folder resolves DOC0's folder (searches are folder-scoped).
+func doc0_folder(t *testing.T) uuid.UUID {
+	t.Helper()
+	doc, err := orm_document.GetDocumentByID(context.Background(), mustUUID(t, DOC0))
+	if err != nil {
+		t.Fatalf("load doc: %v", err)
+	}
+	if doc.FolderID == nil || *doc.FolderID == uuid.Nil {
+		t.Fatal("DOC0 has no folder")
+	}
+	return *doc.FolderID
+}
+
+// TestSearchDocumentsSemantic_Synonym — the feature's raison d'être:
+// "Opdivo" never appears in DOC0 (it says nivolumab / immunotherapy /
+// checkpoint inhibitors), so BM25 cannot match it; the vector path must.
+// Fixture: embeds DOC0 first (idempotent; existing docs carry no
+// embeddings since the pipeline only embeds on upload).
+func TestSearchDocumentsSemantic_Synonym(t *testing.T) {
+	require_db(t)
+	require_fastembed(t)
+
+	if err := document_service.EmbedDocumentTree(context.Background(), mustUUID(t, DOC0)); err != nil {
+		t.Fatalf("embed DOC0: %v", err)
+	}
+
+	rows, err := SearchDocumentsSemantic(context.Background(),
+		"Opdivo combination immunotherapy adverse events",
+		doc0_folder(t), true, nil, 5)
+	if err != nil {
+		t.Fatalf("SearchDocumentsSemantic: %v", err)
+	}
+	found := false
+	for i := range rows {
+		t.Logf("#%d %s score=%.4f", i+1, rows[i].Filename, rows[i].Score)
+		if rows[i].ID == mustUUID(t, DOC0) && rows[i].Score > 0 {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("DOC0 not recalled for the synonym query — semantic search failed its purpose")
+	}
+}
+
+// TestSearchDocumentsSemantic_ChineseQuery: the embedding model is
+// English-only (bge-small-en-v1.5) yet must still recall the right doc
+// for a Chinese query — verified empirically 2026-08-17 (out-of-distribution
+// but working); this test guards that against model/service drift. If it
+// starts failing, switching to a multilingual model (bge-m3) is the fix.
+func TestSearchDocumentsSemantic_ChineseQuery(t *testing.T) {
+	require_db(t)
+	require_fastembed(t)
+
+	// Fixture: DOC2 (atezolizumab TNBC — contains the PFS analysis).
+	if err := document_service.EmbedDocumentTree(context.Background(), mustUUID(t, DOC2)); err != nil {
+		t.Fatalf("embed DOC2: %v", err)
+	}
+	doc, err := orm_document.GetDocumentByID(context.Background(), mustUUID(t, DOC2))
+	if err != nil || doc.FolderID == nil {
+		t.Fatalf("load DOC2: %v", err)
+	}
+
+	for _, query := range []string{"无进展生存期结果", "progression-free survival results"} {
+		rows, err := SearchDocumentsSemantic(context.Background(), query, *doc.FolderID, true, nil, 5)
+		if err != nil {
+			t.Fatalf("query %q: %v", query, err)
+		}
+		if len(rows) == 0 || rows[0].ID != mustUUID(t, DOC2) {
+			t.Errorf("query %q: top-1 is not DOC2 (got %d results)", query, len(rows))
+			continue
+		}
+		t.Logf("query %q → top-1 %s score=%.4f", query, rows[0].Filename, rows[0].Score)
+	}
+}
+
+// TestSearchDocumentsKeyword: the KEYWORD path (BM25 over doc-level
+// text) keeps its original behavior.
+func TestSearchDocumentsKeyword(t *testing.T) {
+	require_db(t)
+
+	rows, err := orm_document.SearchDocumentsBm25(context.Background(),
+		"nivolumab cost effectiveness", doc0_folder(t), true, nil, 5)
+	if err != nil {
+		t.Fatalf("SearchDocuments keyword: %v", err)
+	}
+	if len(rows) == 0 {
+		t.Fatal("no BM25 doc results")
+	}
+	if rows[0].ID != mustUUID(t, DOC0) {
+		t.Errorf("top doc = %s (%s), want DOC0", rows[0].ID, rows[0].Filename)
+	}
+	t.Logf("top: %s score=%.4f (of %d)", rows[0].Filename, rows[0].Score, len(rows))
 }

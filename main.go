@@ -1,17 +1,17 @@
 // passion-index main entry point.
 //
-// 启动顺序:
-//  1. hopebox/env 加载 .env(dev 时)
-//  2. hopebox/log 初始化
-//  3. hopebox/dao 连 PG + AutoMigrate documents 表
-//  4. internal/orm 初始化(OOP 注入) + data dir 准备
+// Startup order:
+//  1. hopebox/env loads .env (dev only)
+//  2. hopebox/log init
+//  3. hopebox/dao connects to PG + AutoMigrate
+//  4. internal/orm init (DI) + data dir setup
 //  5. gin HTTP server:
 //     - POST /query  (GraphQL, gqlgen)
 //     - GET /        (GraphiQL playground, dev)
 //     - GET /healthz
 //
-// Phase 3+ 加 tree_service;Phase 6 接 pipeline worker;
-// Phase 7 加 REST 图片下载(/documents/:docId/images/:name)。
+// Phase 3+ adds tree_service; Phase 6 wires the pipeline worker; Phase 7
+// adds REST image download (/documents/:docId/images/:name).
 package main
 
 import (
@@ -39,7 +39,7 @@ import (
 )
 
 func main() {
-	// Step 1: 加载 .env(dev 时);prod 用容器注入的 env。
+	// Step 1: load .env (dev only); prod uses container-injected env.
 	if os.Getenv("ENV") != "prod" {
 		env.LoadEnvVariable()
 	}
@@ -103,7 +103,7 @@ func main() {
 		}
 	}()
 
-	// 优雅关闭
+	// Graceful shutdown.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

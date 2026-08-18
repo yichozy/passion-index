@@ -10,38 +10,30 @@ import (
 	"github.com/yichozy/passion-index/models"
 )
 
-// NodeWithScore holds a node row plus its search relevance score and the
-// parent document's filename (joined from documents table).
-type NodeWithScore struct {
-	models.Node
-	Filename string  `gorm:"column:filename" json:"filename"`
-	Score    float64 `gorm:"column:score" json:"score"`
-}
-
-// SearchNodes performs BM25 search over node content (title/summary/text)
-// via pg_search. Joins documents to apply folder scope + metadata filters
-// and to fetch filename for context.
-//
-// Soft-deleted rows are excluded (gorm.Raw does not auto-apply the
-// DeletedAt filter, so we add it explicitly).
+// SearchNodesByVector recalls the top_k embedded nodes most similar to
+// query_vec (a pgvector literal), scoped like SearchNodes: folder subtree
+// when recursive, metadata containment, soft-deletes excluded. Only
+// DocID and Score are populated in each hit — callers aggregate per
+// document (see models.NodeWithScore).
 //
 //	folder_id scope:
 //	  recursive=false → documents directly in that folder
 //	  recursive=true  → documents in folder + all descendant folders
 //
-// metadata is optional — when non-empty, documents whose metadata column
-// does not contain all the given key-value pairs are excluded.
-func SearchNodes(ctx context.Context, query string, folder_id uuid.UUID, recursive bool, metadata map[string]any, limit int) ([]NodeWithScore, error) {
-	if limit <= 0 {
-		limit = 10
+// Placeholder order in the final SQL: the SELECT's similarity expression
+// comes first, then the WHERE conditions, then ORDER BY and LIMIT — args
+// must be appended in exactly that order.
+func SearchNodesByVector(ctx context.Context, query_vec string, folder_id uuid.UUID, recursive bool, metadata map[string]any, top_k int) ([]models.NodeWithScore, error) {
+	if top_k <= 0 {
+		top_k = 100
 	}
 
 	var conditions []string
 	var args []interface{}
 
-	conditions = append(conditions, "n @@@ paradedb.parse(?)")
-	args = append(args, query)
+	args = append(args, query_vec)
 
+	conditions = append(conditions, "n.embedding IS NOT NULL")
 	conditions = append(conditions, "n.deleted_at IS NULL")
 	conditions = append(conditions, "d.deleted_at IS NULL")
 
@@ -66,19 +58,18 @@ func SearchNodes(ctx context.Context, query string, folder_id uuid.UUID, recursi
 		args = append(args, string(metadataJSON))
 	}
 
-	args = append(args, limit)
+	args = append(args, query_vec, top_k)
 
 	sql := `
-		SELECT n.id, n.doc_id, n.parent_id, n.title, n.summary, n.page_start, n.page_end,
-		       d.filename,
-		       paradedb.score(n) AS score
+		SELECT n.doc_id,
+		       1 - (n.embedding <=> ?::vector) AS score
 		FROM nodes n
 		JOIN documents d ON n.doc_id = d.id
 		WHERE ` + strings.Join(conditions, " AND ") + `
-		ORDER BY score DESC
+		ORDER BY n.embedding <=> ?::vector
 		LIMIT ?`
 
-	var rows []NodeWithScore
+	var rows []models.NodeWithScore
 	err := dao.GetDB().WithContext(ctx).Raw(sql, args...).Scan(&rows).Error
 	return rows, err
 }

@@ -104,6 +104,7 @@ const (
 	DocStatusOcr         DocStatus = "OCR"
 	DocStatusStructuring DocStatus = "STRUCTURING"
 	DocStatusSummary     DocStatus = "SUMMARY"
+	DocStatusEmbedding   DocStatus = "EMBEDDING"
 	DocStatusDone        DocStatus = "DONE"
 	DocStatusFailed      DocStatus = "FAILED"
 )
@@ -113,13 +114,14 @@ var AllDocStatus = []DocStatus{
 	DocStatusOcr,
 	DocStatusStructuring,
 	DocStatusSummary,
+	DocStatusEmbedding,
 	DocStatusDone,
 	DocStatusFailed,
 }
 
 func (e DocStatus) IsValid() bool {
 	switch e {
-	case DocStatusPending, DocStatusOcr, DocStatusStructuring, DocStatusSummary, DocStatusDone, DocStatusFailed:
+	case DocStatusPending, DocStatusOcr, DocStatusStructuring, DocStatusSummary, DocStatusEmbedding, DocStatusDone, DocStatusFailed:
 		return true
 	}
 	return false
@@ -155,6 +157,61 @@ func (e *DocStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e DocStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type SearchMode string
+
+const (
+	SearchModeSemantic SearchMode = "SEMANTIC"
+	SearchModeKeyword  SearchMode = "KEYWORD"
+)
+
+var AllSearchMode = []SearchMode{
+	SearchModeSemantic,
+	SearchModeKeyword,
+}
+
+func (e SearchMode) IsValid() bool {
+	switch e {
+	case SearchModeSemantic, SearchModeKeyword:
+		return true
+	}
+	return false
+}
+
+func (e SearchMode) String() string {
+	return string(e)
+}
+
+func (e *SearchMode) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = SearchMode(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid SearchMode", str)
+	}
+	return nil
+}
+
+func (e SearchMode) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *SearchMode) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e SearchMode) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

@@ -17,6 +17,7 @@ import (
 	"github.com/yichozy/passion-index/internal/orm_document"
 	"github.com/yichozy/passion-index/internal/orm_node"
 	"github.com/yichozy/passion-index/models"
+	"github.com/yichozy/passion-index/services/document_search_service"
 	"github.com/yichozy/passion-index/services/document_service"
 	"gorm.io/gorm"
 )
@@ -149,13 +150,14 @@ func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID uuid.
 	return out, nil
 }
 
-// SearchDocuments performs BM25 search over document-level text
-// (filename + title + description). Returns doc-level matches.
+// SearchDocuments is the doc-level search; the mode dispatch (SEMANTIC =
+// vector recall + DocScore, KEYWORD = BM25) lives in
+// document_search_service.SearchDocuments.
 //
 //	folder_id scope:
 //	  recursive=false → documents directly in that folder
 //	  recursive=true  → documents in folder + all descendant folders
-func (r *queryResolver) SearchDocuments(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) ([]*types.DocumentSearchResult, error) {
+func (r *queryResolver) SearchDocuments(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int, mode *types.SearchMode) ([]*types.DocumentSearchResult, error) {
 	rec := false
 	if recursive != nil {
 		rec = *recursive
@@ -164,7 +166,12 @@ func (r *queryResolver) SearchDocuments(ctx context.Context, query string, folde
 	if limit != nil {
 		l = *limit
 	}
-	rows, err := orm_document.SearchDocuments(ctx, query, folderID, rec, metadata, l)
+	mode_value := ""
+	if mode != nil {
+		mode_value = string(*mode)
+	}
+
+	rows, err := document_search_service.SearchDocuments(ctx, query, folderID, rec, metadata, l, mode_value)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +200,7 @@ func (r *queryResolver) SearchDocumentNodes(ctx context.Context, query string, f
 	if limit != nil {
 		l = *limit
 	}
-	rows, err := orm_node.SearchNodes(ctx, query, folderID, rec, metadata, l)
+	rows, err := orm_node.SearchNodesByBm25(ctx, query, folderID, rec, metadata, l)
 	if err != nil {
 		return nil, err
 	}

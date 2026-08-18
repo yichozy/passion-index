@@ -123,7 +123,7 @@ type ComplexityRoot struct {
 		GetFolder               func(childComplexity int, id uuid.UUID) int
 		GetFolderTree           func(childComplexity int, folderID *uuid.UUID, depth *int) int
 		SearchDocumentNodes     func(childComplexity int, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) int
-		SearchDocuments         func(childComplexity int, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) int
+		SearchDocuments         func(childComplexity int, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int, mode *types.SearchMode) int
 	}
 
 	TreeNode struct {
@@ -152,7 +152,7 @@ type QueryResolver interface {
 	GetDocumentListByFolder(ctx context.Context, folderID uuid.UUID, recursive *bool, limit *int, offset *int) (*types.DocumentList, error)
 	GetDocumentNode(ctx context.Context, nodeID uuid.UUID) (*types.TreeNode, error)
 	GetDocumentNodesByPages(ctx context.Context, docID uuid.UUID, pages []int) ([]*types.TreeNode, error)
-	SearchDocuments(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) ([]*types.DocumentSearchResult, error)
+	SearchDocuments(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int, mode *types.SearchMode) ([]*types.DocumentSearchResult, error)
 	SearchDocumentNodes(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) ([]*types.NodeSearchResult, error)
 	GetFolder(ctx context.Context, id uuid.UUID) (*types.Folder, error)
 	GetFolderTree(ctx context.Context, folderID *uuid.UUID, depth *int) ([]*types.FolderNode, error)
@@ -610,7 +610,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.SearchDocuments(childComplexity, args["query"].(string), args["folder_id"].(uuid.UUID), args["recursive"].(*bool), args["metadata"].(map[string]any), args["limit"].(*int)), true
+		return e.ComplexityRoot.Query.SearchDocuments(childComplexity, args["query"].(string), args["folder_id"].(uuid.UUID), args["recursive"].(*bool), args["metadata"].(map[string]any), args["limit"].(*int), args["mode"].(*types.SearchMode)), true
 
 	case "TreeNode.figures":
 		if e.ComplexityRoot.TreeNode.Figures == nil {
@@ -1381,6 +1381,14 @@ func (ec *executionContext) field_Query_SearchDocuments_args(ctx context.Context
 		return nil, err
 	}
 	args["limit"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "mode",
+		func(ctx context.Context, v any) (*types.SearchMode, error) {
+			return ec.unmarshalOSearchMode2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchMode(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["mode"] = arg5
 	return args, nil
 }
 
@@ -3006,7 +3014,7 @@ func (ec *executionContext) _Query_SearchDocuments(ctx context.Context, field gr
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().SearchDocuments(ctx, fc.Args["query"].(string), fc.Args["folder_id"].(uuid.UUID), fc.Args["recursive"].(*bool), fc.Args["metadata"].(map[string]any), fc.Args["limit"].(*int))
+			return ec.Resolvers.Query().SearchDocuments(ctx, fc.Args["query"].(string), fc.Args["folder_id"].(uuid.UUID), fc.Args["recursive"].(*bool), fc.Args["metadata"].(map[string]any), fc.Args["limit"].(*int), fc.Args["mode"].(*types.SearchMode))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v []*types.DocumentSearchResult) graphql.Marshaler {
@@ -6234,6 +6242,22 @@ func (ec *executionContext) marshalOJSON2map(ctx context.Context, sel ast.Select
 	_ = ctx
 	res := graphql.MarshalMap(v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOSearchMode2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchMode(ctx context.Context, v any) (*types.SearchMode, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(types.SearchMode)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOSearchMode2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐSearchMode(ctx context.Context, sel ast.SelectionSet, v *types.SearchMode) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {

@@ -10,8 +10,17 @@ enum DocStatus {
   OCR
   STRUCTURING
   SUMMARY
+  EMBEDDING
   DONE
   FAILED
+}
+
+# SearchDocuments retrieval mode. SEMANTIC (default) — vector recall over
+# node embeddings + DocScore aggregation; KEYWORD — BM25 over document
+# metadata (filename/title/description).
+enum SearchMode {
+  SEMANTIC
+  KEYWORD
 }
 
 type Document {
@@ -79,7 +88,7 @@ type Query {
   GetDocumentListByFolder(folder_id: UUID!, recursive: Boolean = false, limit: Int = 20, offset: Int = 0): DocumentList!
   GetDocumentNode(node_id: UUID!): TreeNode
   GetDocumentNodesByPages(doc_id: UUID!, pages: [Int!]!): [TreeNode!]!
-  SearchDocuments(query: String!, folder_id: UUID!, recursive: Boolean = false, metadata: JSON, limit: Int = 10): [DocumentSearchResult!]!
+  SearchDocuments(query: String!, folder_id: UUID!, recursive: Boolean = false, metadata: JSON, limit: Int = 10, mode: SearchMode = SEMANTIC): [DocumentSearchResult!]!
   SearchDocumentNodes(query: String!, folder_id: UUID!, recursive: Boolean = false, metadata: JSON, limit: Int = 20): [NodeSearchResult!]!
 }
 

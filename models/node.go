@@ -9,6 +9,11 @@ import (
 // structure. UUID PK (ID) is globally unique. ParentID nil = child of
 // synthetic root (ID=uuid.Nil, not stored). The Nodes field is gorm:"-"
 // — assembled in memory.
+//
+// The table also has an `embedding vector(EmbeddingDim)` column that is
+// deliberately NOT a field here: vectors live only inside SQL (written
+// by orm_node.UpdateVector, compared via <=> in SearchNodesByVector).
+// See EmbeddingDim below before touching it.
 type Node struct {
 	ID       uuid.UUID  `gorm:"primaryKey;type:uuid" json:"id"`
 	DocID    uuid.UUID  `gorm:"index;type:uuid" json:"doc_id"`
@@ -26,6 +31,23 @@ type Node struct {
 }
 
 func (Node) TableName() string { return "nodes" }
+
+// EmbeddingDim is the fixed dimension of the nodes.embedding pgvector
+// column, hardcoded to the fastembed service's model output
+// (BAAI/bge-small-en-v1.5 → 384). Changing the serving model means
+// changing this, dropping the column, and re-embedding documents.
+const EmbeddingDim = 384
+
+// NodeWithScore is a search hit over nodes: the node row plus the parent
+// document's filename and a relevance score. BM25 search
+// (orm_node.SearchNodes) fills everything; vector recall
+// (orm_node.SearchNodesByVector) fills only DocID and Score — its
+// callers aggregate per document.
+type NodeWithScore struct {
+	Node
+	Filename string  `gorm:"column:filename" json:"filename"`
+	Score    float64 `gorm:"column:score" json:"score"`
+}
 
 // GroupByLevelBottomUp returns non-synthetic nodes grouped by depth, in bottom-up
 // order (deepest level first, root level last). The synthetic root (uuid.Nil)

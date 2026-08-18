@@ -20,7 +20,7 @@ import (
 // leaf) for trees ≤ BLOCK_SWITCH_NODE_COUNT nodes, BlockSearch above.
 // Score is the LLM's 0-10 relevance. Any failure fails loudly — no BM25
 // degradation.
-func SearchDocumentNodes(ctx context.Context, doc_id uuid.UUID, query string) (*orm_node.NodeWithScore, error) {
+func SearchDocumentNodes(ctx context.Context, doc_id uuid.UUID, query string) (*models.NodeWithScore, error) {
 	rows, err := orm_node.GetByDocID(ctx, doc_id)
 	if err != nil {
 		return nil, fmt.Errorf("load tree (doc=%s): %w", doc_id, err)
@@ -50,7 +50,7 @@ func SearchDocumentNodes(ctx context.Context, doc_id uuid.UUID, query string) (*
 	if err != nil {
 		return nil, fmt.Errorf("load doc (doc=%s): %w", doc_id, err)
 	}
-	return &orm_node.NodeWithScore{
+	return &models.NodeWithScore{
 		Node:     *node,
 		Filename: doc.Filename,
 		Score:    score,

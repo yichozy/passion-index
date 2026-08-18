@@ -162,6 +162,18 @@ func GenerateDocumentTree(ctx context.Context, doc_id uuid.UUID) (err error) {
 		return fmt.Errorf("insert nodes: %w", err)
 	}
 
+	// Step 4: Embedding — semantic-search vectors over node content
+	// (title + text). Runs after the nodes are persisted. Embeddings never
+	// go stale: text/title are immutable from here on (re-summarize only
+	// regenerates summaries, which are not vectorized).
+	if err = orm_document.UpdateStatus(ctx, doc_id, models.StatusEmbedding); err != nil {
+		return fmt.Errorf("update status embedding: %w", err)
+	}
+	if err = EmbedDocumentTree(ctx, doc_id); err != nil {
+		return fmt.Errorf("embedding: %w", err)
+	}
+	log.Infof(ctx, "pipeline[%s]: embedding done", doc_id)
+
 	// Description = doc-level summary from the single top-level node's
 	// LLM-generated summary. Same single-top-level rule as title.
 	if len(root_node.Nodes) == 1 {
