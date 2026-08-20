@@ -17,13 +17,14 @@ import (
 // document (see models.NodeWithScore).
 //
 //	folder_id scope:
+//	  nil             → all documents (virtual root, whole library)
 //	  recursive=false → documents directly in that folder
 //	  recursive=true  → documents in folder + all descendant folders
 //
 // Placeholder order in the final SQL: the SELECT's similarity expression
 // comes first, then the WHERE conditions, then ORDER BY and LIMIT — args
 // must be appended in exactly that order.
-func SearchNodesByVector(ctx context.Context, query_vec string, folder_id uuid.UUID, recursive bool, metadata map[string]any, top_k int) ([]models.NodeWithScore, error) {
+func SearchNodesByVector(ctx context.Context, query_vec string, folder_id *uuid.UUID, recursive bool, metadata map[string]any, top_k int) ([]models.NodeWithScore, error) {
 	if top_k <= 0 {
 		top_k = 100
 	}
@@ -37,7 +38,10 @@ func SearchNodesByVector(ctx context.Context, query_vec string, folder_id uuid.U
 	conditions = append(conditions, "n.deleted_at IS NULL")
 	conditions = append(conditions, "d.deleted_at IS NULL")
 
-	if recursive {
+	switch {
+	case folder_id == nil:
+		// whole library — no folder scoping
+	case recursive:
 		conditions = append(conditions, `d.folder_id IN (
 			WITH RECURSIVE subtree AS (
 				SELECT id FROM folders WHERE id = ? AND deleted_at IS NULL
@@ -47,10 +51,12 @@ func SearchNodesByVector(ctx context.Context, query_vec string, folder_id uuid.U
 			)
 			SELECT id FROM subtree
 		)`)
-	} else {
+	default:
 		conditions = append(conditions, "d.folder_id = ?")
 	}
-	args = append(args, folder_id)
+	if folder_id != nil {
+		args = append(args, *folder_id)
+	}
 
 	if len(metadata) > 0 {
 		metadataJSON, _ := json.Marshal(metadata)

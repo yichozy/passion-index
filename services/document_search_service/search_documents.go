@@ -25,9 +25,10 @@ const (
 //	           orm_document.SearchDocumentsBm25) — matches literal terms.
 //
 //	folder_id scope:
+//	  nil             → all documents (virtual root, whole library)
 //	  recursive=false → documents directly in that folder
 //	  recursive=true  → documents in folder + all descendant folders
-func SearchDocuments(ctx context.Context, query string, folder_id uuid.UUID, recursive bool, metadata map[string]any, limit int, mode string) ([]orm_document.DocumentWithScore, error) {
+func SearchDocuments(ctx context.Context, query string, folder_id *uuid.UUID, recursive bool, metadata map[string]any, limit int, mode string) ([]orm_document.DocumentWithScore, error) {
 	if mode == SEARCH_MODE_KEYWORD {
 		return orm_document.SearchDocumentsBm25(ctx, query, folder_id, recursive, metadata, limit)
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/yichozy/hopebox/utils"
 	"github.com/yichozy/passion-index/graph/types"
 	"github.com/yichozy/passion-index/internal/orm_document"
+	"github.com/yichozy/passion-index/internal/orm_folder"
 	"github.com/yichozy/passion-index/internal/orm_node"
 	"github.com/yichozy/passion-index/models"
 	"github.com/yichozy/passion-index/services/document_search_service"
@@ -68,6 +69,19 @@ func (r *queryResolver) GetDocument(ctx context.Context, id uuid.UUID) (*types.D
 	if err := utils.CopyObj(&doc, &td); err != nil {
 		return nil, fmt.Errorf("copy doc: %w", err)
 	}
+	// CopyObj is json-tag based and models.Document hides Folder (json:"-"),
+	// so hydrate it inline when requested.
+	if doc.FolderID != nil {
+		if folder, err := orm_folder.GetByID(ctx, *doc.FolderID); err == nil && folder != nil {
+			td.Folder = &types.Folder{
+				ID:        folder.ID,
+				Name:      folder.Name,
+				ParentID:  folder.ParentID,
+				CreatedAt: folder.CreatedAt,
+				UpdatedAt: folder.UpdatedAt,
+			}
+		}
+	}
 
 	rows, err := orm_node.GetByDocID(ctx, id)
 	if err != nil {
@@ -86,9 +100,10 @@ func (r *queryResolver) GetDocument(ctx context.Context, id uuid.UUID) (*types.D
 
 // GetDocumentListByFolder lists documents under a folder with pagination.
 //
+//	folder_id nil   → all documents (virtual root, whole library)
 //	recursive=false → documents directly in that folder
 //	recursive=true  → documents in folder + all descendants
-func (r *queryResolver) GetDocumentListByFolder(ctx context.Context, folderID uuid.UUID, recursive *bool, limit *int, offset *int) (*types.DocumentList, error) {
+func (r *queryResolver) GetDocumentListByFolder(ctx context.Context, folderID *uuid.UUID, recursive *bool, limit *int, offset *int) (*types.DocumentList, error) {
 	rec := false
 	if recursive != nil {
 		rec = *recursive
@@ -111,6 +126,15 @@ func (r *queryResolver) GetDocumentListByFolder(ctx context.Context, folderID uu
 		var td types.Document
 		if err := utils.CopyObj(&docs[i], &td); err != nil {
 			return nil, fmt.Errorf("copy doc: %w", err)
+		}
+		if folder := docs[i].Folder; folder != nil { // preloaded; CopyObj drops it (json:"-")
+			td.Folder = &types.Folder{
+				ID:        folder.ID,
+				Name:      folder.Name,
+				ParentID:  folder.ParentID,
+				CreatedAt: folder.CreatedAt,
+				UpdatedAt: folder.UpdatedAt,
+			}
 		}
 		items[i] = &td
 	}
@@ -150,14 +174,33 @@ func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID uuid.
 	return out, nil
 }
 
+// GetFigureImage returns one figure (page/caption + base64 bytes) of a
+// document. Null when the doc, the figure name, or the OSS object is
+// missing; real failures (DB/OSS) surface as errors.
+func (r *queryResolver) GetFigureImage(ctx context.Context, docID uuid.UUID, name string) (*types.Figure, error) {
+	figure, err := document_service.GetFigureImage(ctx, docID, name)
+	if err != nil {
+		if errors.Is(err, document_service.ErrFigureNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var tf types.Figure
+	if err := utils.CopyObj(figure, &tf); err != nil {
+		return nil, fmt.Errorf("copy figure: %w", err)
+	}
+	return &tf, nil
+}
+
 // SearchDocuments is the doc-level search; the mode dispatch (SEMANTIC =
 // vector recall + DocScore, KEYWORD = BM25) lives in
 // document_search_service.SearchDocuments.
 //
 //	folder_id scope:
+//	  nil             → all documents (virtual root, whole library)
 //	  recursive=false → documents directly in that folder
 //	  recursive=true  → documents in folder + all descendant folders
-func (r *queryResolver) SearchDocuments(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int, mode *types.SearchMode) ([]*types.DocumentSearchResult, error) {
+func (r *queryResolver) SearchDocuments(ctx context.Context, query string, folderID *uuid.UUID, recursive *bool, metadata map[string]any, limit *int, mode *types.SearchMode) ([]*types.DocumentSearchResult, error) {
 	rec := false
 	if recursive != nil {
 		rec = *recursive

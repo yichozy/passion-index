@@ -34,7 +34,9 @@ const SEMANTIC_RECALL_K = 100
 // chunks raise the score with diminishing returns; fewer strong matches
 // beat many weak ones. Score is cosine-based, roughly 0-1. Any failure
 // fails loudly.
-func SearchDocumentsSemantic(ctx context.Context, query string, folder_id uuid.UUID, recursive bool, metadata map[string]any, limit int) ([]orm_document.DocumentWithScore, error) {
+//
+// folder_id nil = whole library (virtual root).
+func SearchDocumentsSemantic(ctx context.Context, query string, folder_id *uuid.UUID, recursive bool, metadata map[string]any, limit int) ([]orm_document.DocumentWithScore, error) {
 	if limit <= 0 {
 		limit = 10
 	}

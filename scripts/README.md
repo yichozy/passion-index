@@ -5,6 +5,7 @@ Bash helpers for hitting the local GraphQL API at `$PASSION_INDEX_URL`
 
 - `folder.sh` — folder CRUD + tree view
 - `docs.sh` — document metadata, tree, nodes, search, polling, upload
+- `docs.sh` — document metadata, tree, nodes, figures, search, polling, upload
 
 Requires `jq` and `curl`.
 
@@ -51,6 +52,7 @@ Medical  [019fef5f-4044-7a73-a145-8fed6ed49f70]  docs=0 subfolders=2
 ./scripts/docs.sh tree <doc_id> [--raw]
 ./scripts/docs.sh node <node_id> [--raw]
 ./scripts/docs.sh pages <doc_id> <page1> [page2...]
+./scripts/docs.sh figure <doc_id> <figure_name> [output_path]
 ./scripts/docs.sh search "<query>" <folder_id> [--recursive] [--keyword] [--metadata '{"key":"value"}']
 ./scripts/docs.sh search-nodes "<query>" <folder_id> [--recursive] [--metadata '{"key":"value"}']
 ./scripts/docs.sh poll <doc_id> [interval_seconds=5] [max_minutes=10]
@@ -65,6 +67,10 @@ or watch status via `docs.sh get <doc_id>` (transitions `DONE → SUMMARY → DO
 
 `tree` shows a pretty outline (titles, page ranges, summaries, figures).
 `--raw` dumps the raw JSON instead.
+
+`figure` fetches one image by its figure file name. With `output_path`, it
+decodes the base64 and writes the image to disk; without it, it prints the
+raw GraphQL `Figure` object (including `data`).
 
 `poll` loops every N seconds, exits 0 on DONE, 1 on FAILED, 2 on timeout.
 
@@ -133,4 +139,14 @@ literal terms only, no embeddings needed:
 ```bash
 ./scripts/docs.sh pages "$DOC_ID" 1 5 10
 ./scripts/docs.sh node  "$NODE_ID" --raw   # NODE_ID is a UUID now
+```
+
+### Fetch one figure image
+
+```bash
+# See the raw GraphQL Figure payload (includes base64 data)
+./scripts/docs.sh figure "$DOC_ID" "9f6c0d8a-table-1.png"
+
+# Decode and save to a local file
+./scripts/docs.sh figure "$DOC_ID" "9f6c0d8a-table-1.png" /tmp/table-1.png
 ```

@@ -10,12 +10,16 @@ import (
 
 // ListDocumentsByFolder returns documents under a folder with pagination.
 //
+//	folder_id nil   → all documents (virtual root, whole library)
 //	recursive=false → documents directly in that folder
 //	recursive=true  → documents in folder + all descendants (single recursive
 //	                  CTE collects descendant folder IDs in one round-trip)
-func ListDocumentsByFolder(ctx context.Context, folder_id uuid.UUID, recursive bool, limit, offset int) ([]models.Document, int64, error) {
+func ListDocumentsByFolder(ctx context.Context, folder_id *uuid.UUID, recursive bool, limit, offset int) ([]models.Document, int64, error) {
 	db := dao.GetDB().WithContext(ctx).Model(&models.Document{})
-	if recursive {
+	switch {
+	case folder_id == nil:
+		// whole library — no folder scoping
+	case recursive:
 		db = db.Where(`folder_id IN (
 			WITH RECURSIVE subtree AS (
 				SELECT id FROM folders WHERE id = ? AND deleted_at IS NULL
@@ -24,9 +28,9 @@ func ListDocumentsByFolder(ctx context.Context, folder_id uuid.UUID, recursive b
 				WHERE f.deleted_at IS NULL
 			)
 			SELECT id FROM subtree
-		)`, folder_id)
-	} else {
-		db = db.Where("folder_id = ?", folder_id)
+		)`, *folder_id)
+	default:
+		db = db.Where("folder_id = ?", *folder_id)
 	}
 
 	var total int64

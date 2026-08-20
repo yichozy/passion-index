@@ -33,9 +33,9 @@ import (
 
 // Seed documents (must stay ingested in the local DB — the benchmark docs).
 const (
-	DOC0 = "019fff60-59d8-7870-909c-b08b819fd85e" // nivolumab+ipilimumab cost-effectiveness (NSCLC)
-	DOC1 = "019fff65-7444-7900-9420-cbd2853c7367" // WT1 peptide vaccine (AML)
-	DOC2 = "019fff5a-6895-732c-8916-d41d32974099" // atezolizumab+nab-paclitaxel (TNBC)
+	DOC0 = "01a013ac-5507-7a39-a346-74fd69d4f8ae" // CheckMate227.pdf: nivolumab+ipilimumab cost-effectiveness (NSCLC)
+	DOC1 = "01a013b2-a725-7065-ab2c-5f3788d3a358" // NCT00398138.pdf: WT1 peptide vaccine (AML)
+	DOC2 = "01a01396-df0d-7b4e-a151-b68e0fd5e4d2" // NCT02425891.pdf: atezolizumab+nab-paclitaxel (TNBC)
 )
 
 func TestMain(m *testing.M) {
@@ -335,9 +335,10 @@ func TestSearchDocumentsSemantic_Synonym(t *testing.T) {
 		t.Fatalf("embed DOC0: %v", err)
 	}
 
+	folder_id := doc0_folder(t)
 	rows, err := SearchDocumentsSemantic(context.Background(),
 		"Opdivo combination immunotherapy adverse events",
-		doc0_folder(t), true, nil, 5)
+		&folder_id, true, nil, 5)
 	if err != nil {
 		t.Fatalf("SearchDocumentsSemantic: %v", err)
 	}
@@ -372,7 +373,7 @@ func TestSearchDocumentsSemantic_ChineseQuery(t *testing.T) {
 	}
 
 	for _, query := range []string{"无进展生存期结果", "progression-free survival results"} {
-		rows, err := SearchDocumentsSemantic(context.Background(), query, *doc.FolderID, true, nil, 5)
+		rows, err := SearchDocumentsSemantic(context.Background(), query, doc.FolderID, true, nil, 5)
 		if err != nil {
 			t.Fatalf("query %q: %v", query, err)
 		}
@@ -389,8 +390,9 @@ func TestSearchDocumentsSemantic_ChineseQuery(t *testing.T) {
 func TestSearchDocumentsKeyword(t *testing.T) {
 	require_db(t)
 
+	folder_id := doc0_folder(t)
 	rows, err := orm_document.SearchDocumentsBm25(context.Background(),
-		"nivolumab cost effectiveness", doc0_folder(t), true, nil, 5)
+		"nivolumab cost effectiveness", &folder_id, true, nil, 5)
 	if err != nil {
 		t.Fatalf("SearchDocuments keyword: %v", err)
 	}

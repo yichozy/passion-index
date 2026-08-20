@@ -117,13 +117,14 @@ type ComplexityRoot struct {
 
 	Query struct {
 		GetDocument             func(childComplexity int, id uuid.UUID) int
-		GetDocumentListByFolder func(childComplexity int, folderID uuid.UUID, recursive *bool, limit *int, offset *int) int
+		GetDocumentListByFolder func(childComplexity int, folderID *uuid.UUID, recursive *bool, limit *int, offset *int) int
 		GetDocumentNode         func(childComplexity int, nodeID uuid.UUID) int
 		GetDocumentNodesByPages func(childComplexity int, docID uuid.UUID, pages []int) int
+		GetFigureImage          func(childComplexity int, docID uuid.UUID, name string) int
 		GetFolder               func(childComplexity int, id uuid.UUID) int
 		GetFolderTree           func(childComplexity int, folderID *uuid.UUID, depth *int) int
 		SearchDocumentNodes     func(childComplexity int, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) int
-		SearchDocuments         func(childComplexity int, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int, mode *types.SearchMode) int
+		SearchDocuments         func(childComplexity int, query string, folderID *uuid.UUID, recursive *bool, metadata map[string]any, limit *int, mode *types.SearchMode) int
 	}
 
 	TreeNode struct {
@@ -149,10 +150,11 @@ type MutationResolver interface {
 }
 type QueryResolver interface {
 	GetDocument(ctx context.Context, id uuid.UUID) (*types.Document, error)
-	GetDocumentListByFolder(ctx context.Context, folderID uuid.UUID, recursive *bool, limit *int, offset *int) (*types.DocumentList, error)
+	GetDocumentListByFolder(ctx context.Context, folderID *uuid.UUID, recursive *bool, limit *int, offset *int) (*types.DocumentList, error)
 	GetDocumentNode(ctx context.Context, nodeID uuid.UUID) (*types.TreeNode, error)
 	GetDocumentNodesByPages(ctx context.Context, docID uuid.UUID, pages []int) ([]*types.TreeNode, error)
-	SearchDocuments(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int, mode *types.SearchMode) ([]*types.DocumentSearchResult, error)
+	GetFigureImage(ctx context.Context, docID uuid.UUID, name string) (*types.Figure, error)
+	SearchDocuments(ctx context.Context, query string, folderID *uuid.UUID, recursive *bool, metadata map[string]any, limit *int, mode *types.SearchMode) ([]*types.DocumentSearchResult, error)
 	SearchDocumentNodes(ctx context.Context, query string, folderID uuid.UUID, recursive *bool, metadata map[string]any, limit *int) ([]*types.NodeSearchResult, error)
 	GetFolder(ctx context.Context, id uuid.UUID) (*types.Folder, error)
 	GetFolderTree(ctx context.Context, folderID *uuid.UUID, depth *int) ([]*types.FolderNode, error)
@@ -543,7 +545,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.GetDocumentListByFolder(childComplexity, args["folder_id"].(uuid.UUID), args["recursive"].(*bool), args["limit"].(*int), args["offset"].(*int)), true
+		return e.ComplexityRoot.Query.GetDocumentListByFolder(childComplexity, args["folder_id"].(*uuid.UUID), args["recursive"].(*bool), args["limit"].(*int), args["offset"].(*int)), true
 	case "Query.GetDocumentNode":
 		if e.ComplexityRoot.Query.GetDocumentNode == nil {
 			break
@@ -566,6 +568,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.GetDocumentNodesByPages(childComplexity, args["doc_id"].(uuid.UUID), args["pages"].([]int)), true
+	case "Query.GetFigureImage":
+		if e.ComplexityRoot.Query.GetFigureImage == nil {
+			break
+		}
+
+		args, err := ec.field_Query_GetFigureImage_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.GetFigureImage(childComplexity, args["doc_id"].(uuid.UUID), args["name"].(string)), true
 	case "Query.GetFolder":
 		if e.ComplexityRoot.Query.GetFolder == nil {
 			break
@@ -610,7 +623,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.SearchDocuments(childComplexity, args["query"].(string), args["folder_id"].(uuid.UUID), args["recursive"].(*bool), args["metadata"].(map[string]any), args["limit"].(*int), args["mode"].(*types.SearchMode)), true
+		return e.ComplexityRoot.Query.SearchDocuments(childComplexity, args["query"].(string), args["folder_id"].(*uuid.UUID), args["recursive"].(*bool), args["metadata"].(map[string]any), args["limit"].(*int), args["mode"].(*types.SearchMode)), true
 
 	case "TreeNode.figures":
 		if e.ComplexityRoot.TreeNode.Figures == nil {
@@ -1172,8 +1185,8 @@ func (ec *executionContext) field_Query_GetDocumentListByFolder_args(ctx context
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "folder_id",
-		func(ctx context.Context, v any) (uuid.UUID, error) {
-			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		func(ctx context.Context, v any) (*uuid.UUID, error) {
+			return ec.unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -1253,6 +1266,28 @@ func (ec *executionContext) field_Query_GetDocument_args(ctx context.Context, ra
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_GetFigureImage_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "doc_id",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["doc_id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "name",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg1
 	return args, nil
 }
 
@@ -1350,8 +1385,8 @@ func (ec *executionContext) field_Query_SearchDocuments_args(ctx context.Context
 	}
 	args["query"] = arg0
 	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "folder_id",
-		func(ctx context.Context, v any) (uuid.UUID, error) {
-			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		func(ctx context.Context, v any) (*uuid.UUID, error) {
+			return ec.unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -2882,7 +2917,7 @@ func (ec *executionContext) _Query_GetDocumentListByFolder(ctx context.Context, 
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().GetDocumentListByFolder(ctx, fc.Args["folder_id"].(uuid.UUID), fc.Args["recursive"].(*bool), fc.Args["limit"].(*int), fc.Args["offset"].(*int))
+			return ec.Resolvers.Query().GetDocumentListByFolder(ctx, fc.Args["folder_id"].(*uuid.UUID), fc.Args["recursive"].(*bool), fc.Args["limit"].(*int), fc.Args["offset"].(*int))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *types.DocumentList) graphql.Marshaler {
@@ -3004,6 +3039,50 @@ func (ec *executionContext) fieldContext_Query_GetDocumentNodesByPages(ctx conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_GetFigureImage(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_GetFigureImage(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().GetFigureImage(ctx, fc.Args["doc_id"].(uuid.UUID), fc.Args["name"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *types.Figure) graphql.Marshaler {
+			return ec.marshalOFigure2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFigure(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_GetFigureImage(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Figure(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_GetFigureImage_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_SearchDocuments(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3014,7 +3093,7 @@ func (ec *executionContext) _Query_SearchDocuments(ctx context.Context, field gr
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().SearchDocuments(ctx, fc.Args["query"].(string), fc.Args["folder_id"].(uuid.UUID), fc.Args["recursive"].(*bool), fc.Args["metadata"].(map[string]any), fc.Args["limit"].(*int), fc.Args["mode"].(*types.SearchMode))
+			return ec.Resolvers.Query().SearchDocuments(ctx, fc.Args["query"].(string), fc.Args["folder_id"].(*uuid.UUID), fc.Args["recursive"].(*bool), fc.Args["metadata"].(map[string]any), fc.Args["limit"].(*int), fc.Args["mode"].(*types.SearchMode))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v []*types.DocumentSearchResult) graphql.Marshaler {
@@ -5159,6 +5238,25 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "GetFigureImage":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_GetFigureImage(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "SearchDocuments":
 			field := field
 
@@ -6199,6 +6297,13 @@ func (ec *executionContext) marshalODocument2ᚖgithubᚗcomᚋyichozyᚋpassion
 		return graphql.Null
 	}
 	return ec._Document(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOFigure2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFigure(ctx context.Context, sel ast.SelectionSet, v *types.Figure) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Figure(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOFolder2ᚖgithubᚗcomᚋyichozyᚋpassionᚑindexᚋgraphᚋtypesᚐFolder(ctx context.Context, sel ast.SelectionSet, v *types.Folder) graphql.Marshaler {

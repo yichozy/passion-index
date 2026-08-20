@@ -8,6 +8,7 @@
 #   ./scripts/docs.sh pages <doc_id> <page1> [page2...]
 #   ./scripts/docs.sh search "<query>" <folder_id> [--recursive] [--metadata '{"key":"value"}']
 #   ./scripts/docs.sh search-nodes "<query>" <folder_id> [--recursive] [--metadata '{"key":"value"}']
+#   ./scripts/docs.sh figure <doc_id> <figure_name> [output_path]
 #   ./scripts/docs.sh poll <doc_id> [interval_seconds=5] [max_minutes=10]
 #   ./scripts/docs.sh upload <pdf_path> <folder_id> [metadata_json]
 #   ./scripts/docs.sh resummarize <doc_id> [--force]
@@ -15,7 +16,7 @@ set -eu
 BASE="${PASSION_INDEX_URL:-http://localhost:8900}"
 
 cmd="${1:-}"
-[ -z "$cmd" ] && { echo "usage: $0 <get|tree|node|pages|search|search-nodes|poll|upload|resummarize> ..." >&2; exit 1; }
+[ -z "$cmd" ] && { echo "usage: $0 <get|tree|node|pages|search|search-nodes|figure|poll|upload|resummarize> ..." >&2; exit 1; }
 shift
 
 # Send a JSON query and return the response body.
@@ -123,6 +124,35 @@ case "$cmd" in
 				""
 			end
 		'
+		;;
+
+	figure)
+		doc_id="${1:?usage: figure <doc_id> <figure_name> [output_path]}"
+		figure_name="${2:?usage: figure <doc_id> <figure_name> [output_path]}"
+		output_path="${3:-}"
+		query='{ GetFigureImage(doc_id: "'"$doc_id"'", name: "'"$figure_name"'") { name page caption data } }'
+		resp=$(send_query "$query"); surface_errors "$resp"
+		if [ -n "$output_path" ]; then
+			data=$(echo "$resp" | jq -r '.data.GetFigureImage.data // empty')
+			[ -z "$data" ] && { echo "(figure not found)" >&2; exit 1; }
+			printf '%s' "$data" | base64 --decode >"$output_path"
+			echo "$resp" | jq --arg output_path "$output_path" '
+				if .data.GetFigureImage == null then
+					null
+				else
+					.data.GetFigureImage
+					| {
+						name,
+						page,
+						caption,
+						saved_to: $output_path,
+						bytes: ((.data | @base64d) | length)
+					}
+				end
+			'
+			exit 0
+		fi
+		echo "$resp" | jq '.data.GetFigureImage'
 		;;
 
 	search)
