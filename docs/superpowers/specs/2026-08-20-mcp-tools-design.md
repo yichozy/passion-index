@@ -177,10 +177,11 @@ useless to text-only agents; base64 lets multimodal agents inline it.
 
 ## Shared Conventions
 
-- **Virtual root**: `folder_id` omitted = whole library, all documents.
-  No root folder row (zero data migration; top-level folders stay
-  `parent_id IS NULL`). If "upload to root" is ever needed, materialize
-  a root row then.
+- **Virtual root**: `folder_id` omitted = whole library, all documents
+  (query-side only). No root folder row (zero data migration; top-level
+  folders stay `parent_id IS NULL`). **Uploads keep requiring a concrete
+  folder_id** — existing validation unchanged; if "upload to root" is
+  ever needed, materialize a root row then.
 - **wait_for_completion** (tools 4–6): handler polls `GetDocument.status`
   every 5s, max 120s. FAILED → tool error carrying `document.error`;
   timeout → return current metadata + status (not an error; the agent
