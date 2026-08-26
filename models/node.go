@@ -148,6 +148,9 @@ func (n *Node) flattenNode(docID uuid.UUID, parentID *uuid.UUID, rows *[]Node) {
 // are multiple top-level nodes, wraps them in a synthetic root (uuid.Nil)
 // so the return type stays *Node.
 func AssembleTree(rows []Node) *Node {
+	if len(rows) == 0 {
+		return &Node{ID: uuid.Nil}
+	}
 	children_by_parent := map[uuid.UUID][]Node{}
 	var top_level []Node
 	for i := range rows {
@@ -172,5 +175,7 @@ func AssembleTree(rows []Node) *Node {
 	if len(tree) == 1 {
 		return &tree[0]
 	}
-	return &Node{ID: uuid.Nil, Nodes: tree}
+	// Synthetic root is not a DB row, but should carry doc_id so GraphQL
+	// TreeNode.doc_id stays non-null for callers that read document.tree.
+	return &Node{ID: uuid.Nil, DocID: rows[0].DocID, Nodes: tree}
 }

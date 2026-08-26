@@ -41,6 +41,7 @@ type Document {
 
 type TreeNode {
   id: UUID!
+  doc_id: UUID!
   parent_id: UUID
   title: String!
   page_start: Int!

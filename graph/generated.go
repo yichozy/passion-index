@@ -128,6 +128,7 @@ type ComplexityRoot struct {
 	}
 
 	TreeNode struct {
+		DocID     func(childComplexity int) int
 		Figures   func(childComplexity int) int
 		ID        func(childComplexity int) int
 		Nodes     func(childComplexity int) int
@@ -625,6 +626,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.SearchDocuments(childComplexity, args["query"].(string), args["folder_id"].(*uuid.UUID), args["recursive"].(*bool), args["metadata"].(map[string]any), args["limit"].(*int), args["mode"].(*types.SearchMode)), true
 
+	case "TreeNode.doc_id":
+		if e.ComplexityRoot.TreeNode.DocID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TreeNode.DocID(childComplexity), true
 	case "TreeNode.figures":
 		if e.ComplexityRoot.TreeNode.Figures == nil {
 			break
@@ -921,6 +928,8 @@ func (ec *executionContext) childFields_TreeNode(ctx context.Context, field grap
 	switch field.Name {
 	case "id":
 		return ec.fieldContext_TreeNode_id(ctx, field)
+	case "doc_id":
+		return ec.fieldContext_TreeNode_doc_id(ctx, field)
 	case "parent_id":
 		return ec.fieldContext_TreeNode_parent_id(ctx, field)
 	case "title":
@@ -3358,6 +3367,29 @@ func (ec *executionContext) fieldContext_TreeNode_id(_ context.Context, field gr
 	return graphql.NewScalarFieldContext("TreeNode", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
+func (ec *executionContext) _TreeNode_doc_id(ctx context.Context, field graphql.CollectedField, obj *types.TreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TreeNode_doc_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DocID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TreeNode_doc_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TreeNode", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
 func (ec *executionContext) _TreeNode_parent_id(ctx context.Context, field graphql.CollectedField, obj *types.TreeNode) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5386,6 +5418,11 @@ func (ec *executionContext) _TreeNode(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = graphql.MarshalString("TreeNode")
 		case "id":
 			out.Values[i] = ec._TreeNode_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "doc_id":
+			out.Values[i] = ec._TreeNode_doc_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

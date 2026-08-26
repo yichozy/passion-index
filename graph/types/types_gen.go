@@ -87,6 +87,7 @@ type Query struct {
 
 type TreeNode struct {
 	ID        uuid.UUID   `json:"id"`
+	DocID     uuid.UUID   `json:"doc_id"`
 	ParentID  *uuid.UUID  `json:"parent_id,omitempty"`
 	Title     string      `json:"title"`
 	PageStart int         `json:"page_start"`

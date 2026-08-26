@@ -59,17 +59,10 @@ func GenerateDocumentTree(ctx context.Context, doc_id uuid.UUID) (err error) {
 	}
 	defer os.Remove(pdf_path)
 
-	zip_bytes, err := mineru_private.NewClient().Process(ctx, pdf_path, map[string]string{
-		"backend":             "hybrid-engine",
-		"parse_method":        "ocr",
-		"formula_enable":      "true",
-		"table_enable":        "false",
-		"language":            "en",
-		"return_content_list": "true",
-		"return_middle_json":  "true",
-		"return_images":       "true",
-		"response_format_zip": "true",
-	})
+	// No options — hopebox mineru_private defaults match this pipeline
+	// exactly (hybrid-engine OCR, formula on, tables off, en, content
+	// list + middle json + images + zip all returned).
+	zip_bytes, err := mineru_private.NewClient().Process(ctx, pdf_path)
 	if err != nil {
 		return fmt.Errorf("ocr: %w", err)
 	}
