@@ -12,6 +12,7 @@ import (
 	"github.com/yichozy/hopebox/llm"
 	"github.com/yichozy/hopebox/llm_types"
 	"github.com/yichozy/hopebox/log"
+	"github.com/yichozy/passion-index/internal/llm_safety"
 )
 
 // BEAM_TIMEOUT bounds a single rank attempt (per attempt — hopebox retries
@@ -115,16 +116,18 @@ func RankCandidates(ctx context.Context, query string, candidates []BeamCandidat
 	var block strings.Builder
 	for _, c := range candidates {
 		fmt.Fprintf(&block, "- id: %s\n", c.Node.ID)
-		fmt.Fprintf(&block, "  title: %s\n", c.Node.Title)
-		fmt.Fprintf(&block, "  summary: %s\n", c.Node.Summary)
-		text := c.Node.Text
+		fmt.Fprintf(&block, "  title: %s\n", llm_safety.Sanitize(c.Node.Title))
+		fmt.Fprintf(&block, "  summary: %s\n", llm_safety.Sanitize(c.Node.Summary))
+		// Sanitize before truncating — a pattern cut in half by the
+		// truncation boundary would survive otherwise.
+		text := llm_safety.Sanitize(c.Node.Text)
 		if len(text) > BEAM_TEXT_TRUNCATE {
 			text = text[:BEAM_TEXT_TRUNCATE]
 		}
 		fmt.Fprintf(&block, "  text: %s\n", text)
 		fmt.Fprintf(&block, "  range: p%d-%d\n", c.Node.PageStart, c.Node.PageEnd)
-		fmt.Fprintf(&block, "  path: %s\n", c.SectionPath)
-		parent_ctx := c.ParentSummary
+		fmt.Fprintf(&block, "  path: %s\n", llm_safety.Sanitize(c.SectionPath))
+		parent_ctx := llm_safety.Sanitize(c.ParentSummary)
 		if parent_ctx == "" {
 			parent_ctx = "(root)"
 		}
@@ -136,8 +139,8 @@ func RankCandidates(ctx context.Context, query string, candidates []BeamCandidat
 	prompt := strings.NewReplacer(
 		"{{ query }}", query,
 		"{{ pick_limit }}", strconv.Itoa(pick_limit),
-		"{{ candidates_block }}", block.String(),
-	).Replace(BEAM_RANK_PROMPT)
+		"{{ candidates_block }}", llm_safety.WrapDocument(block.String()),
+	).Replace(llm_safety.HardeningPreamble + BEAM_RANK_PROMPT)
 
 	return call_ranker(ctx, prompt)
 }

@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/gatlin"
+	"github.com/yichozy/passion-index/internal/llm_safety"
 	"github.com/yichozy/passion-index/models"
 )
 
@@ -49,7 +50,7 @@ var ErrBlockNoCandidates = errors.New("block search: no candidates in any block"
 // BLOCK_STATIC_SEGMENT is the never-changing prompt head — identical
 // bytes in every call so the KV-cache prefix starts stable. Mirrors
 // ConDB's DOC_CACHE_STATIC_SEGMENT.
-const BLOCK_STATIC_SEGMENT = `You are ranking tree nodes to answer a user question.
+const BLOCK_STATIC_SEGMENT = llm_safety.HardeningPreamble + `You are ranking tree nodes to answer a user question.
 Previous blocks are provided for context only — do NOT select nodes from them.`
 
 // BLOCK_DYNAMIC_TAIL is the volatile per-call part: query, previous

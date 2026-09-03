@@ -12,12 +12,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/aliyun"
+	"github.com/yichozy/hopebox/dao"
 	"github.com/yichozy/hopebox/log"
 	"github.com/yichozy/hopebox/mineru_popo"
 	"github.com/yichozy/hopebox/mineru_private"
 	"github.com/yichozy/passion-index/internal/orm_document"
 	"github.com/yichozy/passion-index/internal/orm_node"
+	"github.com/yichozy/passion-index/internal/orm_page"
 	"github.com/yichozy/passion-index/models"
+	"gorm.io/gorm"
 )
 
 // GenerateDocumentTree runs the document processing pipeline in the background.
@@ -38,7 +41,7 @@ func GenerateDocumentTree(ctx context.Context, doc_id uuid.UUID) (err error) {
 			doc.Error = err.Error()
 			// err here shadows the outer named return — keep the original
 			// pipeline error intact for the caller even if this Update fails.
-			if err := orm_document.Update(ctx, &doc); err != nil {
+			if err := orm_document.Update(ctx, dao.GetDB(), &doc); err != nil {
 				log.Errorf(ctx, "pipeline[%s]: failed to record failure status: %v", doc_id, err)
 			}
 		}
@@ -85,20 +88,36 @@ func GenerateDocumentTree(ctx context.Context, doc_id uuid.UUID) (err error) {
 
 	root_node, page_count := ConvertPopoResultToTree(popo_doc)
 
-	doc.PageCount = page_count
+	// Derived doc fields are set in memory here; they persist (together
+	// with pages and nodes) in one transaction after summarization.
 	// Title comes from the doc's top-level node, set by Popo during
 	// structuring. ConvertPopoResultToTree always returns a synthetic root
 	// (ID=uuid.Nil) wrapping the real top-level nodes in Nodes[], so we look
 	// at len(Nodes): single top-level → use its title; multi top-level → no
 	// doc-level title (consistent with the description rule below and with
 	// AssembleTree's unwrap behavior on the read path).
+	doc.PageCount = page_count
 	if len(root_node.Nodes) == 1 {
 		doc.Title = root_node.Nodes[0].Title
 	}
-	if err = orm_document.Update(ctx, &doc); err != nil {
-		return fmt.Errorf("update page_count + title: %w", err)
-	}
 	log.Infof(ctx, "pipeline[%s]: structuring done — %d nodes, %d pages", doc_id, len(root_node.Nodes), page_count)
+
+	// Per-page text ground truth (MinerU content_list), kept in memory —
+	// tree optimization (next) slices these when splitting over-long
+	// sections; failures here only degrade optimization, never the
+	// pipeline.
+	pages, err := ExtractPages(zip_bytes, doc_id)
+	if err != nil {
+		log.Warnf(ctx, "pipeline[%s]: extract pages: %v", doc_id, err)
+		pages = nil
+	}
+
+	// Tree optimization (expand half of PageIndex tree_optimize): split
+	// over-long leaf sections via one LLM call each, children own their
+	// page-sliced Text. Runs on the in-memory tree BEFORE summarization/
+	// persist/embed so everything downstream sees the final shape.
+	// Best-effort, never fails the pipeline.
+	OptimizeTree(ctx, root_node, pages)
 
 	// Step 3: Summary — LLM bottom-up node summaries
 	if err = orm_document.UpdateStatus(ctx, doc_id, models.StatusSummary); err != nil {
@@ -149,10 +168,26 @@ func GenerateDocumentTree(ctx context.Context, doc_id uuid.UUID) (err error) {
 
 	log.Infof(ctx, "pipeline[%s]: summary done", doc_id)
 
-	// Flatten the in-memory tree (with summaries) into node rows and persist.
+	// Description = doc-level summary from the single top-level node's
+	// LLM-generated summary. Same single-top-level rule as title.
+	if len(root_node.Nodes) == 1 {
+		doc.Description = root_node.Nodes[0].Summary
+	}
+
+	// Everything structuring + summarizing produced, in one transaction:
+	// derived doc fields, page rows, node rows. A failure leaves no
+	// half-structured document (no title without nodes, no orphan pages).
 	rows := root_node.FlattenTree(doc.ID)
-	if err := orm_node.Create(ctx, rows); err != nil {
-		return fmt.Errorf("insert nodes: %w", err)
+	if err = dao.GetDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := orm_document.Update(ctx, tx, &doc); err != nil {
+			return err
+		}
+		if err := orm_page.Create(ctx, tx, pages); err != nil {
+			return err
+		}
+		return orm_node.Create(ctx, tx, rows)
+	}); err != nil {
+		return fmt.Errorf("persist structure: %w", err)
 	}
 
 	// Step 4: Embedding — semantic-search vectors over node content
@@ -167,15 +202,9 @@ func GenerateDocumentTree(ctx context.Context, doc_id uuid.UUID) (err error) {
 	}
 	log.Infof(ctx, "pipeline[%s]: embedding done", doc_id)
 
-	// Description = doc-level summary from the single top-level node's
-	// LLM-generated summary. Same single-top-level rule as title.
-	if len(root_node.Nodes) == 1 {
-		doc.Description = root_node.Nodes[0].Summary
-	}
-
 	// Done — update document metadata.
 	doc.Status = models.StatusDone
-	if err = orm_document.Update(ctx, &doc); err != nil {
+	if err = orm_document.Update(ctx, dao.GetDB(), &doc); err != nil {
 		return fmt.Errorf("update done status: %w", err)
 	}
 	log.Infof(ctx, "pipeline[%s] done", doc_id)

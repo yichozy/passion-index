@@ -3,14 +3,16 @@ package orm_node
 import (
 	"context"
 
-	"github.com/yichozy/hopebox/dao"
 	"github.com/yichozy/passion-index/models"
+	"gorm.io/gorm"
 )
 
-// Create batch-inserts node rows for a document.
-func Create(ctx context.Context, rows []models.Node) error {
+// Create batch-inserts node rows for a document. db is the handle to
+// run on — dao.GetDB() standalone, or the tx inside a service-layer
+// transaction. No-op on empty input.
+func Create(ctx context.Context, db *gorm.DB, rows []models.Node) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	return dao.GetDB().WithContext(ctx).Create(&rows).Error
+	return db.WithContext(ctx).Create(&rows).Error
 }

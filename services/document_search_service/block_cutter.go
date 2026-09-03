@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/yichozy/hopebox/llm"
+	"github.com/yichozy/passion-index/internal/llm_safety"
 	"github.com/yichozy/passion-index/models"
 )
 
@@ -232,17 +233,17 @@ func renderBlockContent(nodes []*models.Node, depth_by_id map[uuid.UUID]int) str
 		var lines []string
 		lines = append(lines, fmt.Sprintf("- id: %s", n.ID))
 		if n.Title != "" {
-			lines = append(lines, fmt.Sprintf("  title: %s", n.Title))
+			lines = append(lines, fmt.Sprintf("  title: %s", llm_safety.Sanitize(n.Title)))
 		}
 		// Parent title only when the parent is in this block (ConDB builds
 		// its title map from block nodes).
 		if n.ParentID != nil {
 			if parent_title, ok := title_by_id[*n.ParentID]; ok {
-				lines = append(lines, fmt.Sprintf("  parent: %s", parent_title))
+				lines = append(lines, fmt.Sprintf("  parent: %s", llm_safety.Sanitize(parent_title)))
 			}
 		}
 		if n.Summary != "" {
-			lines = append(lines, fmt.Sprintf("  summary: %s", n.Summary))
+			lines = append(lines, fmt.Sprintf("  summary: %s", llm_safety.Sanitize(n.Summary)))
 		}
 		lines = append(lines, fmt.Sprintf("  depth: %d", depth_by_id[n.ID]))
 		if n.PageStart != 0 || n.PageEnd != 0 {
@@ -276,14 +277,16 @@ func renderBlockContent(nodes []*models.Node, depth_by_id map[uuid.UUID]int) str
 	for _, meta := range metas {
 		out = append(out, meta.lines...)
 		if meta.text != "" {
-			text := meta.text
+			text := llm_safety.Sanitize(meta.text)
 			if len(text) > chars_per_node {
 				text = text[:chars_per_node]
 			}
 			out = append(out, fmt.Sprintf("  text: %s", text))
 		}
 	}
-	return strings.Join(out, "\n")
+	// Delimiters are part of the cached block content — byte-stable for a
+	// given block, so the provider KV cache still hits.
+	return llm_safety.WrapDocument(strings.Join(out, "\n"))
 }
 
 // countNodeTokens estimates a node's prompt footprint the way ConDB's

@@ -11,6 +11,7 @@ import (
 	"github.com/yichozy/hopebox/llm"
 	"github.com/yichozy/hopebox/llm_types"
 	"github.com/yichozy/hopebox/log"
+	"github.com/yichozy/passion-index/internal/llm_safety"
 	"github.com/yichozy/passion-index/models"
 )
 
@@ -126,7 +127,8 @@ func summarizeNode(ctx context.Context, node *models.Node, image_urls map[string
 
 	if len(node.Nodes) == 0 {
 		// Leaf — its own Text + Figures (figures attached as image URLs).
-		prompt = strings.NewReplacer("{{ text }}", node.Text).Replace(LEAF_SUMMARY_PROMPT)
+		prompt = strings.NewReplacer("{{ text }}", llm_safety.Secure(node.Text)).
+			Replace(llm_safety.HardeningPreamble + LEAF_SUMMARY_PROMPT)
 		for i := range node.Figures {
 			figure := node.Figures[i]
 			url, ok := image_urls[figure.Name]
@@ -151,16 +153,16 @@ func summarizeNode(ctx context.Context, node *models.Node, image_urls map[string
 				continue
 			}
 			children_for_prompt = append(children_for_prompt, map[string]string{
-				"title":   node.Nodes[i].Title,
-				"summary": node.Nodes[i].Summary,
+				"title":   llm_safety.Sanitize(node.Nodes[i].Title),
+				"summary": llm_safety.Sanitize(node.Nodes[i].Summary),
 			})
 		}
 		listing, _ := json.Marshal(children_for_prompt)
 		prompt = strings.NewReplacer(
-			"{{ title }}", node.Title,
-			"{{ opening_text }}", node.Text,
+			"{{ title }}", llm_safety.Sanitize(node.Title),
+			"{{ opening_text }}", llm_safety.Secure(node.Text),
 			"{{ children }}", string(listing),
-		).Replace(PARENT_SUMMARY_PROMPT)
+		).Replace(llm_safety.HardeningPreamble + PARENT_SUMMARY_PROMPT)
 		// Parent doesn't see images directly — it composes from children.
 	}
 
