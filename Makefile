@@ -1,4 +1,3 @@
-.PHONY: build run gql clean migrate hopebox tidy test fmt
 
 # Build the binary
 build:
@@ -10,9 +9,7 @@ run:
 	go run main.go
 
 # Regenerate GraphQL code after editing graph/schema/*.graphql
-gql:
 	@echo "Generating GraphQL code..."
-	go run github.com/99designs/gqlgen generate
 
 # Run all tests
 test:

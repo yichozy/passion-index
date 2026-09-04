@@ -5,10 +5,9 @@ import (
 	"sort"
 
 	"github.com/google/uuid"
-	"github.com/yichozy/hopebox/utils"
-	"github.com/yichozy/passion-index/graph/types"
 	"github.com/yichozy/passion-index/internal/orm_document"
 	"github.com/yichozy/passion-index/internal/orm_folder"
+	"github.com/yichozy/passion-index/models"
 )
 
 // GetFolderTree returns folder(s) as a nested tree with batched counts.
@@ -20,13 +19,13 @@ import (
 // Three SQL round-trips: GetSubtree (recursive CTE) + two batched GROUP BY
 // count queries. Tree assembly (stitching the flat folder list into a graph
 // of FolderNode) is the service's job, not the orm's.
-func GetFolderTree(ctx context.Context, folderID *uuid.UUID, depth int) ([]*types.FolderNode, error) {
+func GetFolderTree(ctx context.Context, folderID *uuid.UUID, depth int) ([]*models.FolderNode, error) {
 	folders, err := orm_folder.GetSubtree(ctx, folderID, depth)
 	if err != nil {
 		return nil, err
 	}
 	if len(folders) == 0 {
-		return []*types.FolderNode{}, nil
+		return []*models.FolderNode{}, nil
 	}
 
 	folder_ids := make([]uuid.UUID, len(folders))
@@ -43,22 +42,24 @@ func GetFolderTree(ctx context.Context, folderID *uuid.UUID, depth int) ([]*type
 	}
 
 	// Build node lookup keyed by folder ID.
-	nodes_by_id := make(map[uuid.UUID]*types.FolderNode, len(folders))
+	nodes_by_id := make(map[uuid.UUID]*models.FolderNode, len(folders))
 	for i := range folders {
 		folder := folders[i]
-		var node types.FolderNode
-		_ = utils.CopyObj(&folder, &node)
-		node.DocumentCount = int(document_counts[folder.ID])
-		node.FolderCount = int(subfolder_counts[folder.ID])
-		node.Folders = []*types.FolderNode{}
-		nodes_by_id[folder.ID] = &node
+		nodes_by_id[folder.ID] = &models.FolderNode{
+			ID:            folder.ID,
+			Name:          folder.Name,
+			ParentID:      folder.ParentID,
+			DocumentCount: int(document_counts[folder.ID]),
+			FolderCount:   int(subfolder_counts[folder.ID]),
+			Folders:       []*models.FolderNode{},
+		}
 	}
 
 	// Link each node to its parent, or promote to root when:
 	//   - parent_id is nil (top-level), or
 	//   - it is the anchor itself (folderID set), or
 	//   - its parent isn't in scope (defensive — shouldn't normally trigger).
-	var roots []*types.FolderNode
+	var roots []*models.FolderNode
 	for i := range folders {
 		folder := folders[i]
 		node := nodes_by_id[folder.ID]
