@@ -93,7 +93,7 @@ type Query {
   GetDocumentNodesByPages(doc_id: UUID!, pages: [Int!]!): [TreeNode!]!
   # Fetch a single figure (image) by document + name with base64 data.
   # Names come from TreeNode.figures. Data is hydrated on demand from OSS.
-  GetFigureImage(doc_id: UUID!, name: String!): Figure
+  GetDocumentImage(doc_id: UUID!, name: String!): Figure
   SearchDocuments(query: String!, folder_id: UUID, recursive: Boolean = false, metadata: JSON, limit: Int = 10, mode: SearchMode = SEMANTIC): [DocumentSearchResult!]!
   SearchDocumentNodes(query: String!, folder_id: UUID!, recursive: Boolean = false, metadata: JSON, limit: Int = 20): [NodeSearchResult!]!
 }

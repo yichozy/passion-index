@@ -174,11 +174,11 @@ func (r *queryResolver) GetDocumentNodesByPages(ctx context.Context, docID uuid.
 	return out, nil
 }
 
-// GetFigureImage returns one figure (page/caption + base64 bytes) of a
+// GetDocumentImage returns one figure (page/caption + base64 bytes) of a
 // document. Null when the doc, the figure name, or the OSS object is
 // missing; real failures (DB/OSS) surface as errors.
-func (r *queryResolver) GetFigureImage(ctx context.Context, docID uuid.UUID, name string) (*types.Figure, error) {
-	figure, err := document_service.GetFigureImage(ctx, docID, name)
+func (r *queryResolver) GetDocumentImage(ctx context.Context, docID uuid.UUID, name string) (*types.Figure, error) {
+	figure, err := document_service.GetDocumentImage(ctx, docID, name)
 	if err != nil {
 		if errors.Is(err, document_service.ErrFigureNotFound) {
 			return nil, nil

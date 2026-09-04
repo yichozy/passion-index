@@ -15,17 +15,17 @@ import (
 	"github.com/yichozy/passion-index/models"
 )
 
-// ErrFigureNotFound covers every miss in GetFigureImage: unknown doc,
+// ErrFigureNotFound covers every miss in GetDocumentImage: unknown doc,
 // no figure by that name, or the OSS object is gone. Callers map it to
 // a null/not-found response rather than an internal error.
 var ErrFigureNotFound = errors.New("figure not found")
 
-// GetFigureImage returns a figure (page/caption + base64 image bytes)
+// GetDocumentImage returns a figure (page/caption + base64 image bytes)
 // for a document. The pipeline persists images to OSS at
 // passion-index/<docID>/images/<name> (see generate_document_tree.go);
 // Figure.Data is hydrated on demand here — the models comment promised
 // this, nothing fulfilled it until now.
-func GetFigureImage(ctx context.Context, doc_id uuid.UUID, name string) (*models.Figure, error) {
+func GetDocumentImage(ctx context.Context, doc_id uuid.UUID, name string) (*models.Figure, error) {
 	doc, err := orm_document.GetDocumentByID(ctx, doc_id)
 	if err != nil {
 		return nil, err
