@@ -66,7 +66,7 @@ case "$cmd" in
 	node)
 		node_id="${1:?usage: node <node_id> [--raw]}"
 		mode="${2:-pretty}"
-		resp=$(rest_get "/getNodeById" --data-urlencode "id=$node_id")
+		resp=$(rest_get "/getDocumentSectionById" --data-urlencode "id=$node_id")
 		if [ "$mode" = "--raw" ]; then
 			echo "$resp" | jq '.'
 			exit 0
@@ -86,14 +86,13 @@ case "$cmd" in
 		shift
 		[ $# -eq 0 ] && { echo "error: provide at least one page (single, list member, or range like 5-10)" >&2; exit 1; }
 		pages=$(IFS=,; echo "$*")
-		rest_get "/getDocumentSections" --data-urlencode "doc_id=$doc_id" --data-urlencode "pages=$pages" | jq -r '
+		rest_get "/getPageContent" --data-urlencode "doc_id=$doc_id" --data-urlencode "pages=$pages" | jq -r '
 			if length == 0 then
-				"(no nodes cover the requested pages)"
+				"(no pages returned)"
 			else
-				.[].nodes // . | .[] |
-				"● \(.title)  [\(.id)]  p\(.page_start)-\(.page_end)",
-				(if (.summary // "") != "" then "  ↳ \(.summary)" else empty end),
-				(if (.text // "") != "" then .text else "(no text)" end),
+				.[] |
+				"● p\(.page)",
+				(if (.text // "") != "" then .text else "(no text — document may predate the pages store)" end),
 				""
 			end'
 		;;
@@ -150,7 +149,7 @@ case "$cmd" in
 		folder_id="${2:?usage: search-nodes <query> <folder_id>}"
 		recursive="false"
 		[ "${3:-}" = "--recursive" ] && recursive="true"
-		rest_get "/searchNodes" \
+		rest_get "/searchDocumentSections" \
 			--data-urlencode "q=$query_str" \
 			--data-urlencode "folder_id=$folder_id" \
 			--data-urlencode "recursive=$recursive" | jq -r '

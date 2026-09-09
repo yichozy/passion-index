@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/yichozy/hopebox/aliyun"
 	"github.com/yichozy/passion-index/internal/orm_document"
 	"github.com/yichozy/passion-index/internal/orm_folder"
-	"github.com/yichozy/passion-index/internal/orm_node"
 	"github.com/yichozy/passion-index/models"
 	"github.com/yichozy/passion-index/services/document_service"
 )
@@ -59,9 +57,9 @@ func (h *DocumentHandler) GetDocumentById(c *gin.Context) {
 		return
 	}
 	var tree *models.Node
-	if rows, err := orm_node.GetByDocID(c.Request.Context(), id); err == nil && len(rows) > 0 {
-		tree = models.AssembleTree(rows)
-	}
+	if t, err := document_service.GetDocumentStructure(c.Request.Context(), id); err == nil {
+		tree = t
+	} // not-found/not-ready here just omit the tree; metadata still serves
 	resp := document_response{Document: doc, Tree: tree}
 	if doc.FolderID != nil {
 		if folder, err := orm_folder.GetByID(c.Request.Context(), *doc.FolderID); err == nil && folder != nil {
@@ -174,80 +172,30 @@ func (h *DocumentHandler) ResummarizeDocument(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "accepted"})
 }
 
-// Sections: GET /getDocumentSections?doc_id&pages=5-10 — nodes
-// overlapping the pages. The pages spec accepts single ("5"), list
-// ("3,7,10"), and range ("5-10") forms, 1-based; total expansion is
-// capped at 50 so "1-99999" can't blow up the query.
-func (h *DocumentHandler) GetDocumentSections(c *gin.Context) {
+// GetPageContent: GET /getPageContent?doc_id&pages=5-10 — per-page
+// markdown text (PageIndex get_page_content semantics); the spec is
+// parsed and the read is gated in document_service.GetPageText.
+func (h *DocumentHandler) GetPageContent(c *gin.Context) {
 	id, err := uuid.Parse(c.Query("doc_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad document id"})
 		return
 	}
-	spec := strings.TrimSpace(c.Query("pages"))
-	if spec == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "empty pages spec"})
-		return
-	}
-	seen := map[int]bool{}
-	var pages []int
-	for _, part := range strings.Split(spec, ",") {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("empty page in spec %q", spec)})
-			return
-		}
-		if start_text, end_text, is_range := strings.Cut(part, "-"); is_range {
-			start, err := strconv.Atoi(strings.TrimSpace(start_text))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("bad range start in %q", part)})
-				return
-			}
-			end, err := strconv.Atoi(strings.TrimSpace(end_text))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("bad range end in %q", part)})
-				return
-			}
-			if start < 1 || end < start {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("bad range %q (pages are 1-based, start ≤ end)", part)})
-				return
-			}
-			for page := start; page <= end; page++ {
-				if !seen[page] {
-					seen[page] = true
-					pages = append(pages, page)
-				}
-			}
-			continue
-		}
-		page, err := strconv.Atoi(part)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("bad page %q", part)})
-			return
-		}
-		if page < 1 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("page %d out of range (pages are 1-based)", page)})
-			return
-		}
-		if !seen[page] {
-			seen[page] = true
-			pages = append(pages, page)
-		}
-	}
-	if len(pages) > 50 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("pages spec expands to %d pages, max 50", len(pages))})
-		return
-	}
-	sort.Ints(pages)
-	nodes, err := document_service.GetDocumentNodesByPages(c.Request.Context(), id, pages)
+	pages, err := document_service.GetPageText(c.Request.Context(), id, c.Query("pages"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		switch {
+		case errors.Is(err, document_service.ErrBadPageSpec):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case errors.Is(err, document_service.ErrDocumentNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case errors.Is(err, document_service.ErrDocumentNotReady):
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
-	if nodes == nil {
-		nodes = []*models.Node{}
-	}
-	c.JSON(http.StatusOK, nodes)
+	c.JSON(http.StatusOK, pages)
 }
 
 // Figure: GET /getFigure?doc_id&name — base64 JSON, for

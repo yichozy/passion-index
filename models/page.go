@@ -16,3 +16,9 @@ type Page struct {
 }
 
 func (Page) TableName() string { return "pages" }
+
+// PageText is the wire view of one page's text — page is 1-based.
+type PageText struct {
+	Page int    `json:"page"`
+	Text string `json:"text"`
+}

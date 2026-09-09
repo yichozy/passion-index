@@ -51,9 +51,9 @@ func (h *SearchHandler) SearchDocuments(c *gin.Context) {
 	c.JSON(http.StatusOK, rows)
 }
 
-// Nodes: GET /searchNodes?q&folder_id(required)&recursive&limit —
+// SearchDocumentSections: GET /searchDocumentSections?q&folder_id(required)&recursive&limit —
 // BM25 over node title+summary+text.
-func (h *SearchHandler) SearchNodes(c *gin.Context) {
+func (h *SearchHandler) SearchDocumentSections(c *gin.Context) {
 	query := c.Query("q")
 	if query == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "q is required"})

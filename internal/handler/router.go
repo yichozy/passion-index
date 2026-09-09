@@ -13,8 +13,11 @@ import (
 func Register(r *gin.Engine) {
 	documents := &DocumentHandler{}
 	folders := &FolderHandler{}
-	nodes := &NodeHandler{}
+	sections := &SectionHandler{}
 	search := &SearchHandler{}
+	chat := &ChatHandler{}
+
+	r.POST("/chat", chat.Chat)
 
 	r.GET("/getDocumentList", documents.GetDocumentList)
 	r.POST("/uploadDocument", documents.UploadDocument)
@@ -22,12 +25,12 @@ func Register(r *gin.Engine) {
 	r.GET("/getDocumentById", documents.GetDocumentById)
 	r.DELETE("/deleteDocument", documents.DeleteDocument)
 	r.POST("/resummarizeDocument", documents.ResummarizeDocument)
-	r.GET("/getDocumentSections", documents.GetDocumentSections)
+	r.GET("/getPageContent", documents.GetPageContent)
 	r.GET("/getFigure", documents.GetFigure)
 	r.GET("/documents/:id/images/:name", documents.GetImageFile) // 302 direct link for browsers / LLM providers
 
-	r.GET("/searchNodes", search.SearchNodes)
-	r.GET("/getNodeById", nodes.GetNodeById)
+	r.GET("/searchDocumentSections", search.SearchDocumentSections)
+	r.GET("/getDocumentSectionById", sections.GetDocumentSectionById)
 
 	r.GET("/getFolderTree", folders.GetFolderTree)
 	r.GET("/getFolderById", folders.GetFolderById)
