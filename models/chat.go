@@ -9,7 +9,7 @@ type ChatMessage struct {
 }
 
 // ChatCitation is one validated citation tag from the answer: the
-// section actually read by the tool loop that backs the claim.
+// section/page range actually read by the tool loop that backs the claim.
 type ChatCitation struct {
 	Filename  string     `json:"filename"`
 	PageStart int        `json:"page_start"`

@@ -1,11 +1,11 @@
 package chat_service
 
-// The chat tool surface, named identically to the MCP layer (cloud-
-// aligned): get_folder_structure, browse_documents (time | relevance),
-// search_documents (keyword), get_document, get_document_structure,
-// get_page_content, get_section, get_document_image, plus
-// search_sections — the in-process beam/block tree retrieval that
-// PageIndex doesn't have. Everything runs in-process; document-derived
+// The chat tool surface, the six PageIndex cloud tools (see
+// pageindex_prompt.txt): get_folder_structure, browse_documents
+// (time | relevance), search_documents (keyword), get_document_structure,
+// get_page_content, get_document_image. get_document, get_section and
+// search_sections below are kept implemented but not exposed — PageIndex's
+// chat has no such tools. Everything runs in-process; document-derived
 // text passes llm_safety.Sanitize before entering the model's context.
 // Error semantics: infrastructure failures return Go errors (the tool
 // loop aborts); "not found"/"not ready" return {"error": ...} results
@@ -32,8 +32,8 @@ import (
 	"github.com/yichozy/passion-index/services/folder_service"
 )
 
-// trace_entry records a section a tool actually read — the citation
-// validator matches answer tags against these.
+// trace_entry records a section/page a tool actually read — the citation
+// validator in chat.go matches answer tags against these.
 type trace_entry struct {
 	filename   string
 	node_id    uuid.UUID
@@ -42,15 +42,11 @@ type trace_entry struct {
 	snippet    string
 }
 
-// tool_set carries per-conversation state: the folder scope and the
-// read trace. The tool loop executes sequentially, no locking needed.
+// tool_set carries per-conversation state: the folder scope and the read
+// trace. The tool loop executes sequentially, no locking needed.
 type tool_set struct {
 	folder_id *uuid.UUID
 	trace     []trace_entry
-}
-
-func new_tool_set(folder_id *uuid.UUID) *tool_set {
-	return &tool_set{folder_id: folder_id}
 }
 
 // sanitized marshals v to JSON and redacts injection phrases — every
@@ -69,50 +65,30 @@ func error_result(message string) *tool_base.QueryResult {
 	return &tool_base.QueryResult{Return: string(out)}
 }
 
-func arg_string(args map[string]any, key string) string {
-	if v, ok := args[key].(string); ok {
-		return v
-	}
-	return ""
-}
-
-func arg_int(args map[string]any, key string, fallback int) int {
-	if v, ok := args[key].(float64); ok && int(v) > 0 {
-		return int(v)
-	}
-	return fallback
-}
-
-func arg_bool(args map[string]any, key string) bool {
-	if v, ok := args[key].(bool); ok {
-		return v
-	}
-	return false
-}
-
 // arg_folder_id resolves a tool's optional folder_id, falling back to
 // the conversation scope.
 func (t *tool_set) arg_folder_id(args map[string]any) *uuid.UUID {
-	if raw := arg_string(args, "folder_id"); raw != "" {
-		if id, err := uuid.Parse(raw); err == nil {
-			return &id
-		}
+	raw, _ := args["folder_id"].(string)
+	if id, err := uuid.Parse(raw); err == nil {
+		return &id
 	}
 	return t.folder_id
 }
 
-// definitions assembles the ten tools keyed by name for ChatKwargs.Tools.
+// definitions assembles the six cloud-aligned tools keyed by name for
+// ChatKwargs.Tools.
 func (t *tool_set) definitions() map[string]tool_base.ToolDefinition {
 	return map[string]tool_base.ToolDefinition{
 		"get_folder_structure":   t.get_folder_structure(),
 		"browse_documents":       t.browse_documents(),
 		"search_documents":       t.search_documents(),
-		"get_document":           t.get_document(),
 		"get_document_structure": t.get_document_structure(),
 		"get_page_content":       t.get_page_content(),
-		"get_section":            t.get_section(),
 		"get_document_image":     t.get_document_image(),
-		"search_sections":        t.search_sections(),
+		// Kept but not exposed — PageIndex's chat has no such tools.
+		// "get_document":        t.get_document(),
+		// "get_section":         t.get_section(),
+		// "search_sections":     t.search_sections(),
 	}
 }
 
@@ -128,7 +104,10 @@ func (t *tool_set) get_folder_structure() tool_base.ToolDefinition {
 			Parameters:  utils.GenerateSchema[args](),
 		},
 		Function: func(ctx context.Context, m map[string]any) (*tool_base.QueryResult, error) {
-			depth := arg_int(m, "depth", 10)
+			depth := 10
+			if v, ok := m["depth"].(float64); ok && int(v) > 0 {
+				depth = int(v)
+			}
 			if depth > 10 {
 				return error_result("depth must be 1-10"), nil
 			}
@@ -163,7 +142,8 @@ func (t *tool_set) browse_documents() tool_base.ToolDefinition {
 			Parameters: utils.GenerateSchema[args](),
 		},
 		Function: func(ctx context.Context, m map[string]any) (*tool_base.QueryResult, error) {
-			sort, query := arg_string(m, "sort"), arg_string(m, "query")
+			sort, _ := m["sort"].(string)
+			query, _ := m["query"].(string)
 			if sort == "" {
 				sort = "time"
 			}
@@ -173,11 +153,15 @@ func (t *tool_set) browse_documents() tool_base.ToolDefinition {
 			if sort == "relevance" && query == "" {
 				return error_result("sort=relevance requires a query"), nil
 			}
+			recursive, _ := m["recursive"].(bool)
+			limit := 10
+			if v, ok := m["limit"].(float64); ok && int(v) > 0 {
+				limit = int(v)
+			}
 
 			if sort == "relevance" {
 				rows, err := document_search_service.SearchDocuments(ctx, query, t.arg_folder_id(m),
-					arg_bool(m, "recursive"), nil, arg_int(m, "limit", 10),
-					document_search_service.SEARCH_MODE_SEMANTIC)
+					recursive, nil, limit, document_search_service.SEARCH_MODE_SEMANTIC)
 				if err != nil {
 					return nil, err
 				}
@@ -188,8 +172,12 @@ func (t *tool_set) browse_documents() tool_base.ToolDefinition {
 				return &tool_base.QueryResult{Return: out}, nil
 			}
 
+			offset := 0
+			if v, ok := m["offset"].(float64); ok && int(v) > 0 {
+				offset = int(v)
+			}
 			docs, total, err := orm_document.ListDocumentsByFolder(ctx, t.arg_folder_id(m),
-				arg_bool(m, "recursive"), arg_int(m, "limit", 10), arg_int(m, "offset", 0))
+				recursive, limit, offset)
 			if err != nil {
 				return nil, err
 			}
@@ -227,13 +215,17 @@ func (t *tool_set) search_documents() tool_base.ToolDefinition {
 			Parameters:  utils.GenerateSchema[args](),
 		},
 		Function: func(ctx context.Context, m map[string]any) (*tool_base.QueryResult, error) {
-			query := arg_string(m, "query")
+			query, _ := m["query"].(string)
 			if query == "" {
 				return error_result("query is required"), nil
 			}
+			recursive, _ := m["recursive"].(bool)
+			limit := 10
+			if v, ok := m["limit"].(float64); ok && int(v) > 0 {
+				limit = int(v)
+			}
 			rows, err := document_search_service.SearchDocuments(ctx, query, t.arg_folder_id(m),
-				arg_bool(m, "recursive"), nil, arg_int(m, "limit", 10),
-				document_search_service.SEARCH_MODE_KEYWORD)
+				recursive, nil, limit, document_search_service.SEARCH_MODE_KEYWORD)
 			if err != nil {
 				return nil, err
 			}
@@ -246,6 +238,7 @@ func (t *tool_set) search_documents() tool_base.ToolDefinition {
 	}
 }
 
+// Kept but not exposed in definitions — PageIndex's chat has no such tool.
 func (t *tool_set) get_document() tool_base.ToolDefinition {
 	type args struct {
 		DocID string `json:"doc_id" schema_description:"Document UUID"`
@@ -257,7 +250,8 @@ func (t *tool_set) get_document() tool_base.ToolDefinition {
 			Parameters:  utils.GenerateSchema[args](),
 		},
 		Function: func(ctx context.Context, m map[string]any) (*tool_base.QueryResult, error) {
-			id, err := uuid.Parse(arg_string(m, "doc_id"))
+			raw, _ := m["doc_id"].(string)
+			id, err := uuid.Parse(raw)
 			if err != nil {
 				return error_result("bad doc_id"), nil
 			}
@@ -291,7 +285,8 @@ func (t *tool_set) get_document_structure() tool_base.ToolDefinition {
 			Parameters:  utils.GenerateSchema[args](),
 		},
 		Function: func(ctx context.Context, m map[string]any) (*tool_base.QueryResult, error) {
-			id, err := uuid.Parse(arg_string(m, "doc_id"))
+			raw, _ := m["doc_id"].(string)
+			id, err := uuid.Parse(raw)
 			if err != nil {
 				return error_result("bad doc_id"), nil
 			}
@@ -346,11 +341,13 @@ func (t *tool_set) get_page_content() tool_base.ToolDefinition {
 			Parameters:  utils.GenerateSchema[args](),
 		},
 		Function: func(ctx context.Context, m map[string]any) (*tool_base.QueryResult, error) {
-			id, err := uuid.Parse(arg_string(m, "doc_id"))
+			raw, _ := m["doc_id"].(string)
+			id, err := uuid.Parse(raw)
 			if err != nil {
 				return error_result("bad doc_id"), nil
 			}
-			pages, err := document_service.GetPageText(ctx, id, arg_string(m, "pages"))
+			pages_spec, _ := m["pages"].(string)
+			pages, err := document_service.GetPageText(ctx, id, pages_spec)
 			if err != nil {
 				if errors.Is(err, document_service.ErrDocumentNotFound) ||
 					errors.Is(err, document_service.ErrDocumentNotReady) ||
@@ -388,6 +385,7 @@ func first_line(text string) string {
 	return text
 }
 
+// Kept but not exposed in definitions — PageIndex's chat has no such tool.
 func (t *tool_set) get_section() tool_base.ToolDefinition {
 	type args struct {
 		NodeID string `json:"node_id" schema_description:"Section UUID — from the get_document_structure tree or search results"`
@@ -399,7 +397,8 @@ func (t *tool_set) get_section() tool_base.ToolDefinition {
 			Parameters:  utils.GenerateSchema[args](),
 		},
 		Function: func(ctx context.Context, m map[string]any) (*tool_base.QueryResult, error) {
-			id, err := uuid.Parse(arg_string(m, "node_id"))
+			raw, _ := m["node_id"].(string)
+			id, err := uuid.Parse(raw)
 			if err != nil {
 				return error_result("bad node_id"), nil
 			}
@@ -410,17 +409,6 @@ func (t *tool_set) get_section() tool_base.ToolDefinition {
 				}
 				return nil, err
 			}
-			doc, err := orm_document.GetDocumentByID(ctx, node.DocID)
-			if err != nil {
-				return nil, err
-			}
-			t.trace = append(t.trace, trace_entry{
-				filename:   doc.Filename,
-				node_id:    node.ID,
-				page_start: node.PageStart,
-				page_end:   node.PageEnd,
-				snippet:    node.Summary,
-			})
 			out, err := sanitized(map[string]any{
 				"node_id": node.ID, "doc_id": node.DocID, "title": node.Title,
 				"page_start": node.PageStart, "page_end": node.PageEnd,
@@ -446,11 +434,12 @@ func (t *tool_set) get_document_image() tool_base.ToolDefinition {
 			Parameters:  utils.GenerateSchema[args](),
 		},
 		Function: func(ctx context.Context, m map[string]any) (*tool_base.QueryResult, error) {
-			id, err := uuid.Parse(arg_string(m, "doc_id"))
+			raw, _ := m["doc_id"].(string)
+			id, err := uuid.Parse(raw)
 			if err != nil {
 				return error_result("bad doc_id"), nil
 			}
-			name := arg_string(m, "image_name")
+			name, _ := m["image_name"].(string)
 			rows, err := orm_node.GetByDocID(ctx, id)
 			if err != nil {
 				return nil, err
@@ -483,6 +472,7 @@ func (t *tool_set) get_document_image() tool_base.ToolDefinition {
 	}
 }
 
+// Kept but not exposed in definitions — PageIndex's chat has no such tool.
 func (t *tool_set) search_sections() tool_base.ToolDefinition {
 	type args struct {
 		DocID string `json:"doc_id" schema_description:"Document UUID"`
@@ -495,11 +485,12 @@ func (t *tool_set) search_sections() tool_base.ToolDefinition {
 			Parameters:  utils.GenerateSchema[args](),
 		},
 		Function: func(ctx context.Context, m map[string]any) (*tool_base.QueryResult, error) {
-			id, err := uuid.Parse(arg_string(m, "doc_id"))
+			raw, _ := m["doc_id"].(string)
+			id, err := uuid.Parse(raw)
 			if err != nil {
 				return error_result("bad doc_id"), nil
 			}
-			query := arg_string(m, "query")
+			query, _ := m["query"].(string)
 			if query == "" {
 				return error_result("query is required"), nil
 			}
@@ -510,13 +501,6 @@ func (t *tool_set) search_sections() tool_base.ToolDefinition {
 			if hit == nil {
 				return error_result("no matching section found"), nil
 			}
-			t.trace = append(t.trace, trace_entry{
-				filename:   hit.Filename,
-				node_id:    hit.ID,
-				page_start: hit.PageStart,
-				page_end:   hit.PageEnd,
-				snippet:    hit.Summary,
-			})
 			out, err := sanitized(map[string]any{
 				"node_id": hit.ID, "doc_id": hit.DocID, "filename": hit.Filename,
 				"title": hit.Title, "page_start": hit.PageStart, "page_end": hit.PageEnd,
